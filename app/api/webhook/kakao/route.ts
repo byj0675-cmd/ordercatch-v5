@@ -108,7 +108,7 @@ export async function POST(req: Request) {
     return kakaoSimpleText('사장님의 장부에 신규 주문이 성공적으로 등록되었습니다! ✅');
 
   } catch (error) {
-    console.error('Kakao Webhook Error:', error);
+    console.error('[Backend Error Details (Kakao Webhook)]:', error);
     return kakaoSimpleText('서버 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
   }
 }

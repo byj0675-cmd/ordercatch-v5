@@ -5,7 +5,7 @@ const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
 // Fixing invalid model version, reverting to latest stable gen-ai model
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 export interface ParsedOrder {
   customerName: string;
@@ -73,7 +73,7 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
     const responseText = result.response.text();
     return JSON.parse(responseText) as ParsedOrder;
   } catch (error) {
-    console.error("Gemini AI Parsing Error:", error);
+    console.error("[Backend Error Details (Gemini AI)]:", error);
     return null;
   }
 }

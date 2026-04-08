@@ -59,7 +59,14 @@ export default function Dashboard() {
     if (!loading) {
       supabase.auth.getSession().then(({ data }) => {
         if (!data.session?.user) {
-          router.replace("/");
+          // Bypassing redirect for localhost only to allow local testing
+          if (window.location.hostname === 'localhost') {
+            console.log("Development mode: Skipping redirect for local testing.");
+            // Fetch with a dummy ID or just stay on page
+            fetchOrders("00000000-0000-0000-0000-000000000000");
+          } else {
+            router.replace("/");
+          }
         } else if (!profile || !profile.store_name) {
           setShowOnboarding(true);
         } else {
@@ -377,7 +384,10 @@ export default function Dashboard() {
 
           {/* ── Paste Wizard ── */}
           <div style={{ marginBottom: 20 }}>
-            {profile?.id && <PasteBoard onParsed={() => fetchOrders(profile.id)} storeId={profile.id} />}
+            <PasteBoard 
+              onParsed={() => fetchOrders(profile?.id || "00000000-0000-0000-0000-000000000000")} 
+              storeId={profile?.id || "00000000-0000-0000-0000-000000000000"} 
+            />
           </div>
 
           {/* ── View toggle + list header ── */}
