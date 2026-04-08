@@ -76,8 +76,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ ...parsedOrder, isUpdate: isUpdateResult });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[Backend Error Details]:", err);
-    return NextResponse.json({ error: "AI 분석에 실패했습니다." }, { status: 500 });
+    // Return specific model connection error if thrown, otherwise fallback to generic
+    const errorMessage = err.message || "AI 분석에 실패했습니다.";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

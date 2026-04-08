@@ -4,9 +4,6 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
 
-// Fixing invalid model version, reverting to latest stable gen-ai model
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-
 export interface ParsedOrder {
   customerName: string;
   phone: string;
@@ -21,6 +18,44 @@ export interface ParsedOrder {
     paymentMethod?: string;
     [key: string]: string | undefined;
   };
+}
+
+// Helper to handle generation logic for different models
+async function tryGenerate(modelName: string, prompt: string, text: string): Promise<ParsedOrder | null> {
+  const model = genAI.getGenerativeModel({ model: modelName });
+  
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt + "\n\n주문 메시지:\n" + text }] }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          customerName: { type: SchemaType.STRING, description: "고객 이름" },
+          phone: { type: SchemaType.STRING, description: "전화번호 (모르면 빈 문자열)" },
+          productName: { type: SchemaType.STRING, description: "주문한 상품명 또는 서비스 종류 요약" },
+          pickupDate: { type: SchemaType.STRING, description: "픽업/방문 일시의 ISO 8601 문자열. 알 수 없으면 빈 문자열" },
+          intent: { type: SchemaType.STRING, description: "주문 의도. 반드시 'new' 또는 'update' 중 하나로 반환" },
+          options: {
+            type: SchemaType.OBJECT,
+            description: "배송방법, 주소, 메모, 요건, 예약금 등 기타 모든 상세 요구사항",
+            properties: {
+              delivery: { type: SchemaType.STRING },
+              address: { type: SchemaType.STRING },
+              memo: { type: SchemaType.STRING },
+              allergyInfo: { type: SchemaType.STRING },
+              paymentMethod: { type: SchemaType.STRING },
+            },
+          },
+        },
+        required: ["customerName", "phone", "productName", "pickupDate", "intent", "options"],
+      },
+    },
+  });
+
+  const responseText = result.response.text();
+  return JSON.parse(responseText) as ParsedOrder;
 }
 
 export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | null> {
@@ -40,40 +75,19 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: systemPrompt + "\n\n주문 메시지:\n" + text }] }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: SchemaType.OBJECT,
-          properties: {
-            customerName: { type: SchemaType.STRING, description: "고객 이름" },
-            phone: { type: SchemaType.STRING, description: "전화번호 (모르면 빈 문자열)" },
-            productName: { type: SchemaType.STRING, description: "주문한 상품명 또는 서비스 종류 요약" },
-            pickupDate: { type: SchemaType.STRING, description: "픽업/방문 일시의 ISO 8601 문자열. 알 수 없으면 빈 문자열" },
-            intent: { type: SchemaType.STRING, description: "주문 의도. 반드시 'new' 또는 'update' 중 하나로 반환" },
-            options: {
-              type: SchemaType.OBJECT,
-              description: "배송방법, 주소, 메모, 요건, 예약금 등 기타 모든 상세 요구사항",
-              properties: {
-                delivery: { type: SchemaType.STRING },
-                address: { type: SchemaType.STRING },
-                memo: { type: SchemaType.STRING },
-                allergyInfo: { type: SchemaType.STRING },
-                paymentMethod: { type: SchemaType.STRING },
-              },
-            },
-          },
-          required: ["customerName", "phone", "productName", "pickupDate", "intent", "options"],
-        },
-      },
-    });
-
-    const responseText = result.response.text();
-    return JSON.parse(responseText) as ParsedOrder;
-  } catch (error) {
-    console.error("[Backend Error Details (Gemini AI)]:", error);
-    return null;
+    // 1st attempt: Primary Model (3.1-flash)
+    console.log("[Gemini AI] Attempting with primary model: gemini-3.1-flash");
+    return await tryGenerate("gemini-3.1-flash", systemPrompt, text);
+  } catch (error: any) {
+    console.warn(`[Gemini AI] Primary model (3.1-flash) failed: ${error.message}. Attempting fallback...`);
+    
+    try {
+      // 2nd attempt: Fallback Model (1.5-flash-latest)
+      return await tryGenerate("gemini-1.5-flash-latest", systemPrompt, text);
+    } catch (fallbackError: any) {
+      console.error("[Backend Error Details (Gemini AI Fallback Failed)]:", fallbackError);
+      // Throw clear Korean error message for the API route to catch
+      throw new Error("AI 서버 모델 연동 오류입니다. (모델: 3.1-flash, 1.5-flash)");
+    }
   }
 }
