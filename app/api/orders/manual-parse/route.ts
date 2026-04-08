@@ -78,6 +78,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...parsedOrder, isUpdate: isUpdateResult });
   } catch (err) {
     console.error("[Backend Error Details]:", err);
-    return NextResponse.json({ error: "서버 내부 오류가 발생했습니다." }, { status: 500 });
+    return NextResponse.json({ error: "AI 분석에 실패했습니다." }, { status: 500 });
   }
 }
