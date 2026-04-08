@@ -377,7 +377,7 @@ export default function Dashboard() {
 
           {/* ── Paste Wizard ── */}
           <div style={{ marginBottom: 20 }}>
-            <PasteBoard />
+            {profile?.id && <PasteBoard onParsed={() => fetchOrders(profile.id)} storeId={profile.id} />}
           </div>
 
           {/* ── View toggle + list header ── */}

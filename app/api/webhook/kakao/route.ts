@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/utils/supabase/client';
+import { createClient } from '@/utils/supabase/server';
 import { parseOrderWithGemini } from '@/app/lib/gemini';
 
 // 카카오 챗봇 응답 포맷 렌더러
@@ -20,6 +20,7 @@ function kakaoSimpleText(text: string) {
 
 export async function POST(req: Request) {
   try {
+    const supabase = await createClient();
     const body = await req.json();
 
     // 카카오 챗봇 페이로드 검증 (userRequest.utterance)

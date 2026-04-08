@@ -6,6 +6,7 @@ import { showToast } from "./Toast";
 
 interface PasteBoardProps {
   onParsed?: (order: Partial<Order>) => void;
+  storeId: string;
 }
 
 const EXAMPLE_TEXTS = [
@@ -14,7 +15,7 @@ const EXAMPLE_TEXTS = [
   "네일 예약 문의요. 4월 5일 오전 10시에 젤 손발 세트 가능할까요? 디자인은 누드핑크 + 실버 체인 아트로요. 연락처는 010-1234-5678입니다.",
 ];
 
-export default function PasteBoard({ onParsed }: PasteBoardProps) {
+export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [text, setText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [parsedResult, setParsedResult] = useState<Record<string, string> | null>(null);
@@ -32,7 +33,7 @@ export default function PasteBoard({ onParsed }: PasteBoardProps) {
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, storeId: 'store-dessert-01' }) // Default storeId
+        body: JSON.stringify({ text, storeId })
       });
       const data = await res.json();
       
