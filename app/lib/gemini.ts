@@ -65,7 +65,15 @@ async function tryGenerate(modelName: string, prompt: string, text: string): Pro
 
 export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | null> {
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set.");
+    const errorMsg = "GEMINI_API_KEY environment variable is not defined or is empty.";
+    console.error(`[Gemini AI Error]: ${errorMsg}`);
+    throw new Error(errorMsg);
+  }
+  
+  if (apiKey.trim().length < 10) {
+    const errorMsg = `GEMINI_API_KEY seems invalid (too short): ${apiKey.substring(0, 3)}...`;
+    console.error(`[Gemini AI Error]: ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 
   const nowIso = new Date().toISOString();
