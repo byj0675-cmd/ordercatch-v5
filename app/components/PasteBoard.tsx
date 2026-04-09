@@ -19,7 +19,9 @@ const EXAMPLE_TEXTS = [
 export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [text, setText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [parsedResult, setParsedResult] = useState<Record<string, string> | null>(null);
+  const [rawParsedData, setRawParsedData] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleParse = async () => {
@@ -29,9 +31,9 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     }
     setIsParsing(true);
     setParsedResult(null);
+    setRawParsedData(null);
 
     try {
-      console.log("Parsing with storeId:", storeId);
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,7 +43,10 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       
       if (!res.ok) throw new Error(data.error);
 
-      // JSON 포맷을 테이블용으로 직관적 매핑
+      // Save raw data for registration
+      setRawParsedData(data);
+
+      // JSON 포맷을 테이블용으로 직관적 매핑 (미리보기용)
       const viewResult: Record<string, string> = {
         고객명: data.customerName,
         상품명: data.productName,
@@ -56,21 +61,46 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       }
 
       setParsedResult(viewResult);
-
-      if (data.isUpdate) {
-        showToast("기존 예약이 성공적으로 수정(Update) 되었습니다!", "success", "✏️");
-      } else {
-        showToast("새로운 주문이 성공적으로 등록되었습니다!", "success", "🎉");
-      }
-
-      if (onParsed) {
-        onParsed({ productName: data.productName, status: "입금대기" });
-      }
-    } catch (e) {
+      showToast("AI 분석이 완료되었습니다. 내용을 확인 후 장부에 저장해 주세요.", "info", "✅");
+    } catch (e: any) {
       console.error(e);
-      showToast("서버 오류가 발생했습니다.", "error", "❌");
+      showToast(e.message || "서버 오류가 발생했습니다.", "error", "❌");
     } finally {
       setIsParsing(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!rawParsedData || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/orders/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderData: rawParsedData, storeId })
+      });
+      const result = await res.json();
+
+      if (!res.ok) throw new Error(result.error);
+
+      showToast(result.isUpdate ? "기존 예약 정보가 성공적으로 수정되었습니다! ✏️" : "새로운 주문이 장부에 등록되었습니다! 🎉", "success", "✓");
+      
+      // Reset UI
+      setIsExpanded(false);
+      setText("");
+      setParsedResult(null);
+      setRawParsedData(null);
+
+      // Refresh Dashboard list
+      if (onParsed) {
+        onParsed({ productName: rawParsedData.productName, status: "입금대기" });
+      }
+    } catch (e: any) {
+      console.error(e);
+      showToast(e.message || "저장 중 오류가 발생했습니다.", "error", "❌");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -271,10 +301,11 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           {parsedResult && (
             <button
               className="btn"
-              style={{ background: "var(--green)", color: "#fff" }}
-              onClick={() => showToast("주문이 장부에 등록되었습니다! (DB 연동 시 실제 저장)", "success", "✓")}
+              disabled={isSaving}
+              style={{ background: "var(--green)", color: "#fff", opacity: isSaving ? 0.7 : 1 }}
+              onClick={handleSave}
             >
-              장부에 저장
+              {isSaving ? "저장 중..." : "장부에 저장"}
             </button>
           )}
         </div>
