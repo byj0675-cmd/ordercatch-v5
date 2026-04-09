@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
   const [isFetching, setIsFetching] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const { profile, loading, updateStoreProfile } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -49,6 +50,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    setMounted(true);
     // 1회만 표시되도록 단순 타이머 처리
     const timer = setTimeout(() => {
       showToast("우측 상단 ⚙️설정에서 내 매장 고유 링크를 확인하세요!", "info", "✨");
@@ -225,12 +227,15 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  const nowStr = new Date().toLocaleDateString("ko-KR", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    weekday: "long",
-  });
+  const nowStr = useMemo(() => {
+    if (!mounted) return "";
+    return new Date().toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long",
+    });
+  }, [mounted]);
 
   return (
     <>
