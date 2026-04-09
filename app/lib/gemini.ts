@@ -75,26 +75,19 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-    // 1st attempt: Primary Model (Latest Stable)
-    console.log("[Gemini AI] Attempting with primary model: gemini-1.5-flash-latest");
-    return await tryGenerate("gemini-1.5-flash-latest", systemPrompt, text);
-  } catch (error: any) {
-    console.warn(`[Gemini AI] Primary model (1.5-flash-latest) failed: ${error.message}. Attempting 2nd fallback...`);
+    // 1st attempt: Primary Model (Latest Version)
+    console.log("[Gemini AI] Attempting with primary model: gemini-2.0-flash");
+    return await tryGenerate("gemini-2.0-flash", systemPrompt, text);
+    } catch (error: any) {
+    console.warn(`[Gemini AI] Primary model (2.0-flash) failed: ${error.message}. Attempting 1.5-flash fallback...`);
     
     try {
-      // 2nd attempt: Specific Version Fallback
-      console.log("[Gemini AI] Attempting with fallback model: gemini-1.5-flash-001");
-      return await tryGenerate("gemini-1.5-flash-001", systemPrompt, text);
+      // 2nd attempt: Stable 1.5 Fallback
+      console.log("[Gemini AI] Attempting with fallback model: gemini-1.5-flash");
+      return await tryGenerate("gemini-1.5-flash", systemPrompt, text);
     } catch (fallbackError: any) {
-      console.warn(`[Gemini AI] 2nd fallback (1.5-flash-001) failed: ${fallbackError.message}. Attempting 3rd fallback (2.0-exp)...`);
-      
-      try {
-        // 3rd attempt: Next Gen Model (Experimental but powerful)
-        return await tryGenerate("gemini-2.0-flash-exp", systemPrompt, text);
-      } catch (thirdError: any) {
-        console.error("[Backend Error Details (Gemini AI All Fallbacks Failed)]:", thirdError);
-        throw new Error("AI 서버 모델 연동 오류입니다. (Vercel 환경변수 및 모델 지원 여부를 확인하세요)");
-      }
+      console.error("[Backend Error Details (Gemini AI All Fallbacks Failed)]:", fallbackError);
+      throw new Error("AI 서버 모델 연동 오류입니다. (Vercel 환경변수 및 모델 지원 여부를 확인하세요)");
     }
   }
 }
