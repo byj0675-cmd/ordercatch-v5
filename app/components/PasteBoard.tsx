@@ -31,6 +31,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     setParsedResult(null);
 
     try {
+      console.log("Parsing with storeId:", storeId);
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
