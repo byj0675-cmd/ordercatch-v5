@@ -88,10 +88,13 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-    console.log("[Gemini AI] Attempting with model: gemini-3-flash-preview");
-    return await tryGenerate("gemini-3-flash-preview", systemPrompt, text);
+  try {
+    const targetModel = "gemini-2.5-flash-lite";
+    console.log(`[Gemini AI] Attempting with model: ${targetModel}`);
+    return await tryGenerate(targetModel, systemPrompt, text);
   } catch (error: any) {
     console.error("[Backend Error Details (Gemini AI Failed)]:", error);
-    throw new Error("AI 서버 모델 연동 오류입니다. (Vercel 환경변수 및 모델 지원 여부를 확인하세요)");
+    const apiErrorMsg = error.message || "Unknown API error";
+    throw new Error(`AI 서버 모델 연동 오류입니다. (${apiErrorMsg})`);
   }
 }

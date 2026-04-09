@@ -90,11 +90,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const { error } = await supabase
         .from('profiles')
-        .update(updateData)
-        .eq('id', session.user.id);
+        .upsert({ 
+          id: session.user.id,
+          email: session.user.email,
+          ...updateData,
+          updated_at: new Date().toISOString()
+        });
       
       if (error) {
-        alert("업데이트 오류: " + error.message + "\nDetails: " + error.details);
+        alert("업데이트 오류: " + error.message);
         console.error("Store Profile Update Error: ", error);
         return false;
       }

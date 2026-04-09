@@ -60,24 +60,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!loading) {
-      supabase.auth.getSession().then(({ data }) => {
-        if (!data.session?.user) {
-          // Bypassing redirect for localhost only to allow local testing
-          if (window.location.hostname === 'localhost') {
-            console.log("Development mode: Skipping redirect for local testing.");
-            fetchOrders("00000000-0000-0000-0000-000000000000");
-          } else {
-            router.replace("/");
-          }
-        } else if (!profile || !profile.store_name) {
-          setShowOnboarding(true);
-        } else {
-          setShowOnboarding(false);
-          fetchOrders(profile.id);
-        }
-      });
+      if (!profile || !profile.store_name) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+        fetchOrders(profile.id);
+      }
     }
-  }, [profile, loading, router]);
+  }, [profile, loading]);
 
   const fetchOrders = async (userId: string) => {
     setIsFetching(true);
@@ -358,11 +348,16 @@ export default function Dashboard() {
               <input type="text" placeholder="예: 홍길동" value={onboardOwner} onChange={(e) => setOnboardOwner(e.target.value)} style={{ padding: "14px 16px", borderRadius: "12px", border: "1px solid var(--border)", fontSize: "15px", outline: "none", width: "100%", background: "var(--bg-secondary)" }} />
             </div>
             <button disabled={onboardLoading || !onboardName.trim() || !onboardOwner.trim()} onClick={async () => {
-                setOnboardLoading(true);
-                const success = await updateStoreProfile({ store_name: onboardName.trim(), category: onboardCategory, owner_name: onboardOwner.trim() });
-                setOnboardLoading(false);
-                if (success) showToast("초기 정보 설정이 완료되었습니다! 🚀", "success");
-                else showToast("저장에 실패했습니다. 다시 시도해주세요.", "error");
+                try {
+                  setOnboardLoading(true);
+                  const success = await updateStoreProfile({ store_name: onboardName.trim(), category: onboardCategory, owner_name: onboardOwner.trim() });
+                  if (success) showToast("초기 정보 설정이 완료되었습니다! 🚀", "success");
+                  else showToast("저장에 실패했습니다. 다시 시도해주세요.", "error");
+                } catch (err) {
+                  showToast("저장 중 시스템 오류가 발생했습니다.", "error");
+                } finally {
+                  setOnboardLoading(false);
+                }
               }} style={{ background: "#03C75A", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 600, fontSize: "16px", cursor: "pointer", border: "none", marginTop: "10px", opacity: (onboardLoading || !onboardName.trim() || !onboardOwner.trim()) ? 0.6 : 1 }}>
               {onboardLoading ? "저장 중..." : "3초 만에 시작하기"}
             </button>
