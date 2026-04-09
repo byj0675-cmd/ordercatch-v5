@@ -24,7 +24,8 @@ export interface ParsedOrder {
 async function tryGenerate(modelName: string, prompt: string, text: string): Promise<ParsedOrder | null> {
   const model = genAI.getGenerativeModel({ model: modelName });
   
-  const result = await model.generateContent({
+  try {
+    const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: prompt + "\n\n주문 메시지:\n" + text }] }],
     generationConfig: {
       temperature: 0.1,
@@ -54,8 +55,12 @@ async function tryGenerate(modelName: string, prompt: string, text: string): Pro
     },
   });
 
-  const responseText = result.response.text();
-  return JSON.parse(responseText) as ParsedOrder;
+    const responseText = result.response.text();
+    return JSON.parse(responseText) as ParsedOrder;
+  } catch (err: any) {
+    console.error(`[Gemini API Error - ${modelName}]:`, err.message || err);
+    throw err; // Re-throw to be caught by parseOrderWithGemini
+  }
 }
 
 export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | null> {
@@ -75,8 +80,8 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-    console.log("[Gemini AI] Attempting with model: gemini-3.1-flash");
-    return await tryGenerate("gemini-3.1-flash", systemPrompt, text);
+    console.log("[Gemini AI] Attempting with model: gemini-3-flash-preview");
+    return await tryGenerate("gemini-3-flash-preview", systemPrompt, text);
   } catch (error: any) {
     console.error("[Backend Error Details (Gemini AI Failed)]:", error);
     throw new Error("AI 서버 모델 연동 오류입니다. (Vercel 환경변수 및 모델 지원 여부를 확인하세요)");

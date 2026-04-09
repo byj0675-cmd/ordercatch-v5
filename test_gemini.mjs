@@ -2,7 +2,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 const apiKey = process.env.GEMINI_API_KEY || "AIzaSyBoBLeH-JvgJIvHpXnA93hYFgjK_3mNd0U";
 const genAI = new GoogleGenerativeAI(apiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
 const text = "연락처: 010-1234-5678\n픽업일시: 2026년 4월 10일 오후 3시\n상품명: 꿀설기 레터링 케이크 1호\n수량: 1개\n요청사항: 하트 초 2개 챙겨주시고, 레터링은 \"결혼기념일 축하해\"로 해주세요!";
 
