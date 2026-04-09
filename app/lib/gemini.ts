@@ -88,7 +88,6 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-  try {
     const targetModel = "gemini-2.5-flash-lite";
     console.log(`[Gemini AI] Attempting with model: ${targetModel}`);
     return await tryGenerate(targetModel, systemPrompt, text);
