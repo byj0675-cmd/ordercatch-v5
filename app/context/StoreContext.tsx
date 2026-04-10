@@ -90,38 +90,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       const { error } = await supabase
         .from('profiles')
-        .upsert({ 
+        .upsert({
           id: session.user.id,
           email: session.user.email,
           ...updateData,
           updated_at: new Date().toISOString()
         });
-      
+
       if (error) {
         alert("업데이트 오류: " + error.message);
         console.error("Store Profile Update Error: ", error);
         return false;
       }
 
-      // Fetch
-      const { data: fullyLoaded } = await supabase
+      // 즉시 로컬 상태를 낙관적으로 업데이트
+      setProfile(prev => prev
+        ? { ...prev, ...updateData }
+        : {
+            id: session.user.id,
+            email: session.user.email || '',
+            store_slug: null,
+            store_name: updateData.store_name ?? null,
+            category: updateData.category ?? null,
+            owner_name: updateData.owner_name ?? null,
+          } as Profile
+      );
+
+      // 백그라운드에서 DB에서 최신 데이터(store_slug 등) 동기화
+      supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
-        
-      if (fullyLoaded) {
-        setProfile(fullyLoaded);
-      } else {
-        setProfile({ 
-          id: session.user.id, 
-          email: session.user.email || '', 
-          store_slug: profile?.store_slug || null, 
-          store_name: updateData.store_name ?? profile?.store_name ?? null,
-          category: updateData.category ?? profile?.category ?? null,
-          owner_name: updateData.owner_name ?? profile?.owner_name ?? null,
-        } as Profile);
-      }
+        .single()
+        .then(({ data: fullyLoaded }) => {
+          if (fullyLoaded) setProfile(fullyLoaded);
+        });
+
       return true;
 
     } catch (err: any) {

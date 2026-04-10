@@ -257,7 +257,7 @@ export default function Dashboard() {
             <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 3 }} suppressHydrationWarning>
               {mounted ? nowStr : "오늘의 날짜"}
             </div>
-            <h1 className="page-title">{profile?.store_name ?? "매장 정보 로딩 중..."}</h1>
+            <h1 className="page-title">{loading ? "매장 정보 로딩 중..." : (profile?.store_name ?? "내 매장")}</h1>
             {activeFilter !== "all" && (
               <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>필터:</span>
@@ -351,8 +351,12 @@ export default function Dashboard() {
                 try {
                   setOnboardLoading(true);
                   const success = await updateStoreProfile({ store_name: onboardName.trim(), category: onboardCategory, owner_name: onboardOwner.trim() });
-                  if (success) showToast("초기 정보 설정이 완료되었습니다! 🚀", "success");
-                  else showToast("저장에 실패했습니다. 다시 시도해주세요.", "error");
+                  if (success) {
+                    showToast("초기 정보 설정이 완료되었습니다! 🚀", "success");
+                    setShowOnboarding(false);
+                  } else {
+                    showToast("저장에 실패했습니다. 다시 시도해주세요.", "error");
+                  }
                 } catch (err) {
                   showToast("저장 중 시스템 오류가 발생했습니다.", "error");
                 } finally {
