@@ -29,21 +29,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let initialized = false;
-
-    // getSession으로 즉시 로드 (빠른 초기 렌더링)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        initialized = true;
-        loadProfileData(session.user.id);
-      } else if (!initialized) {
-        setLoading(false);
-      }
-    });
-
-    // 이후 로그인/로그아웃 이벤트 처리
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return; // getSession이 이미 처리
+    // onAuthStateChange가 INITIAL_SESSION 포함 모든 이벤트를 순서대로 처리
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         await loadProfileData(session.user.id);
       } else {
@@ -52,9 +39,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   const loadProfileData = async (userId: string) => {
@@ -64,14 +49,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .select('*')
         .eq('id', userId)
         .single();
-      
-      if (!error && data) {
-        setProfile(data);
+
+      if (error) {
+        console.warn("Profile fetch error:", error.message);
+        // 프로필 없어도 빈 profile로 세팅해서 loading 해제
+        setProfile({ id: userId, email: '', store_name: null, store_slug: null, category: null, owner_name: null });
       } else {
-        console.warn("Profile fetch error or empty profile:", error);
+        setProfile(data);
       }
     } catch(err) {
-      console.warn("Failed to load profile", err);
+      console.warn("Failed to load profile:", err);
     } finally {
       setLoading(false);
     }
