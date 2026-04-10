@@ -315,9 +315,9 @@ export default function Dashboard() {
 
           <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
             {viewMode === "calendar" ? (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} />
+              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} />
             ) : (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
+              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
             )}
           </div>
         </main>
@@ -440,16 +440,62 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
   );
 }
 
-function EmptyState({ filter }: { filter: FilterKey }) {
-  const msgs: Record<FilterKey, { emoji: string; title: string; sub: string }> = {
-    all: { emoji: "📦", title: "주문이 없습니다", sub: "복붙 마법사로 첫 주문을 등록해 보세요!" },
+function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSettings?: () => void }) {
+  if (filter === "all") {
+    // 첫 진입 시 — 무엇을 해야 하는지 단계별 안내
+    return (
+      <div style={{ padding: "40px 24px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
+        <div style={{ fontSize: 52, marginBottom: 16 }}>📦</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>첫 주문을 받아볼까요?</div>
+        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 32, textAlign: "center", lineHeight: 1.6 }}>
+          아래 3가지 방법 중 하나로 주문을 받을 수 있어요
+        </div>
+        <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ background: "rgba(0,122,255,0.06)", border: "1px solid rgba(0,122,255,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>✨</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>복붙 마법사 (바로 위 버튼)</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>카카오·인스타에서 받은 주문 메시지를 그대로 붙여넣으면 AI가 자동 파싱</div>
+            </div>
+          </div>
+          <div style={{ background: "rgba(88,86,214,0.06)", border: "1px solid rgba(88,86,214,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>🔗</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>고객 주문 링크 공유</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                ⚙️ 설정 → 주문 링크 탭에서 링크를 복사해 고객에게 보내세요.<br />
+                고객이 직접 작성하면 장부에 바로 등록돼요.
+              </div>
+              {onOpenSettings && (
+                <button onClick={onOpenSettings} style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: "#5856d6", background: "rgba(88,86,214,0.1)", border: "none", borderRadius: 8, padding: "5px 12px", cursor: "pointer" }}>
+                  설정 열기 →
+                </button>
+              )}
+            </div>
+          </div>
+          <div style={{ background: "rgba(52,199,89,0.06)", border: "1px solid rgba(52,199,89,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>🤖</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>카카오 자동 수신</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                ⚙️ 설정 → 웹훅 탭에서 URL을 복사해<br />
+                카카오 오픈빌더 스킬에 등록하면 자동 파싱됩니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const msgs: Record<Exclude<FilterKey, "all">, { emoji: string; title: string; sub: string }> = {
     입금대기: { emoji: "⏳", title: "입금 대기 주문 없음", sub: "모든 주문의 입금이 완료되었습니다 🎉" },
     제작중: { emoji: "🔨", title: "제작 중인 주문 없음", sub: "현재 제작 중인 주문이 없습니다." },
     픽업예정: { emoji: "🚀", title: "오늘 픽업 예정 없음", sub: "오늘 픽업 예정인 주문이 없습니다." },
     픽업완료: { emoji: "✅", title: "픽업 완료 내역 없음", sub: "아직 완료된 주문이 없습니다." },
     취소됨: { emoji: "❌", title: "취소 내역 없음", sub: "취소된 주문이 없습니다. 좋은 신호예요! 👍" },
   };
-  const m = msgs[filter];
+  const m = msgs[filter as Exclude<FilterKey, "all">];
   return (
     <div style={{ padding: "80px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
       <div style={{ fontSize: 56 }}>{m.emoji}</div>

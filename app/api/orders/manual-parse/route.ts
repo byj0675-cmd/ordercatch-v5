@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseOrderWithGemini } from "@/app/lib/gemini";
-import { createClient } from "@/utils/supabase/server";
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createClient();
     const body = await req.json();
     const { text, storeId } = body;
 
@@ -14,24 +12,6 @@ export async function POST(req: Request) {
 
     if (!storeId) {
       return NextResponse.json({ error: "매장 식별 정보(storeId)가 없습니다." }, { status: 400 });
-    }
-
-    // Diagnostics for Production
-    const geminiKey = process.env.GEMINI_API_KEY || "";
-    if (!geminiKey) {
-      const errorMsg = "GEMINI_API_KEY environment variable is not defined or is empty.";
-      console.error(`[Gemini AI Error]: ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-    
-    if (geminiKey.trim().length < 10) {
-      const errorMsg = `GEMINI_API_KEY seems invalid (too short): ${geminiKey.substring(0, 3)}...`;
-      console.error(`[Gemini AI Error]: ${errorMsg}`);
-      throw new Error(errorMsg);
-    }
-    console.log(`[Diagnostic] GEMINI_API_KEY status: ${geminiKey ? "Present" : "Missing"}`);
-    if (geminiKey) {
-      console.log(`[Diagnostic] GEMINI_API_KEY starts with: ${geminiKey.substring(0, 6)}... ends with: ...${geminiKey.substring(geminiKey.length - 4)}`);
     }
 
     const parsedOrder = await parseOrderWithGemini(text);
