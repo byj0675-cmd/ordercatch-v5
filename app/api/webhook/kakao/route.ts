@@ -83,28 +83,37 @@ export async function POST(req: Request) {
     const custName = parsedOrder.customerName || '미상';
     const custPhone = parsedOrder.phone || '';
 
-    if (parsedOrder.intent === 'update' && custPhone) {
-      const { data: existing } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('store_id', storeId)
-        .eq('customer_name', custName)
-        .eq('phone', custPhone)
-        .maybeSingle();
+    if (parsedOrder.intent === 'update') {
+      let existingId: string | null = null;
 
-      if (existing) {
-        await supabase
-          .from('orders')
-          .update({
-            product_name: parsedOrder.productName,
-            pickup_date: parsedOrder.pickupDate ? new Date(parsedOrder.pickupDate) : null,
-            options: parsedOrder.options,
-            status: '수정됨',
-          })
-          .eq('id', existing.id);
+      // 방법 1: 고객명 + 전화번호
+      if (custPhone) {
+        const { data } = await supabase
+          .from('orders').select('id')
+          .eq('store_id', storeId).eq('customer_name', custName).eq('phone', custPhone)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        existingId = data?.id || null;
+      }
+
+      // 방법 2: 고객명만 (가장 최근 주문)
+      if (!existingId) {
+        const { data } = await supabase
+          .from('orders').select('id')
+          .eq('store_id', storeId).eq('customer_name', custName)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+        existingId = data?.id || null;
+      }
+
+      if (existingId) {
+        const updatePayload: Record<string, any> = { status: '수정됨' };
+        if (parsedOrder.productName) updatePayload.product_name = parsedOrder.productName;
+        if (parsedOrder.pickupDate) updatePayload.pickup_date = new Date(parsedOrder.pickupDate);
+        if (parsedOrder.options && Object.keys(parsedOrder.options).length > 0) updatePayload.options = parsedOrder.options;
+
+        await supabase.from('orders').update(updatePayload).eq('id', existingId);
 
         return kakaoSimpleText(
-          `✅ 주문이 수정되었습니다!\n고객명: ${custName}\n상품: ${parsedOrder.productName}`
+          `✅ 주문이 수정되었습니다!\n고객명: ${custName}\n${parsedOrder.productName ? `상품: ${parsedOrder.productName}\n` : ''}${parsedOrder.pickupDate ? `픽업일: ${new Date(parsedOrder.pickupDate).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}`
         );
       }
     }

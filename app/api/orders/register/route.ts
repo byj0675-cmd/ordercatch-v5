@@ -13,34 +13,67 @@ export async function POST(req: Request) {
 
     let isUpdateResult = false;
 
-    // DB Upsert/Insert 로직
-    // 연락처(phone)가 있는 경우 기존 주문 조회 및 업데이트 시도
-    if (orderData.intent === 'update' && orderData.phone) {
-      const { data: existing } = await supabase
-        .from('orders')
-        .select('id')
-        .eq('store_id', storeId)
-        .eq('customer_name', orderData.customerName)
-        .eq('phone', orderData.phone)
-        .maybeSingle();
+    if (orderData.intent === 'update') {
+      // 수정 의도 — 기존 주문 찾기 (우선순위 순)
+      let existingId: string | null = null;
 
-      if (existing) {
+      // 방법 1: 고객명 + 전화번호로 찾기 (가장 최근 주문)
+      if (orderData.customerName && orderData.phone) {
+        const { data } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('customer_name', orderData.customerName)
+          .eq('phone', orderData.phone)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existingId = data?.id || null;
+      }
+
+      // 방법 2: 고객명 + 기존 픽업날짜로 찾기 (전화번호 없을 때)
+      if (!existingId && orderData.customerName && orderData.originalPickupDate) {
+        const { data } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('store_id', storeId)
+          .eq('customer_name', orderData.customerName)
+          .eq('pickup_date', new Date(orderData.originalPickupDate).toISOString())
+          .maybeSingle();
+        existingId = data?.id || null;
+      }
+
+      // 방법 3: 고객명만으로 찾기 (가장 최근 주문)
+      if (!existingId && orderData.customerName) {
+        const { data } = await supabase
+          .from('orders')
+          .select('id, product_name, pickup_date')
+          .eq('store_id', storeId)
+          .eq('customer_name', orderData.customerName)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existingId = data?.id || null;
+      }
+
+      if (existingId) {
+        // 변경된 필드만 업데이트 (null이면 기존 값 유지)
+        const updatePayload: Record<string, any> = { status: '수정됨' };
+        if (orderData.productName) updatePayload.product_name = orderData.productName;
+        if (orderData.pickupDate) updatePayload.pickup_date = new Date(orderData.pickupDate);
+        if (orderData.options && Object.keys(orderData.options).length > 0) updatePayload.options = orderData.options;
+
         const { error: updateError } = await supabase
           .from('orders')
-          .update({
-            product_name: orderData.productName,
-            pickup_date: orderData.pickupDate ? new Date(orderData.pickupDate) : null,
-            options: orderData.options,
-            status: "수정됨"
-          })
-          .eq('id', existing.id);
-        
+          .update(updatePayload)
+          .eq('id', existingId);
+
         if (updateError) throw updateError;
         isUpdateResult = true;
       }
+      // 수정 의도지만 기존 주문 못 찾은 경우 → 신규 등록으로 fallback
     }
 
-    // 업데이트가 아니거나 매칭되는 기존 주문이 없는 경우 신규 등록
     if (!isUpdateResult) {
       const { error: insertError } = await supabase.from('orders').insert([{
         store_id: storeId,
@@ -53,13 +86,7 @@ export async function POST(req: Request) {
         options: orderData.options
       }]);
 
-      if (insertError) {
-        // unique 제약 위반 시 더 명확한 메시지 반환
-        if (insertError.code === '23505') {
-          throw new Error('이미 동일한 주문이 존재합니다. 수정 의도라면 메시지에 "수정" 또는 "변경"을 포함해 주세요.');
-        }
-        throw insertError;
-      }
+      if (insertError) throw insertError;
     }
 
     return NextResponse.json({ success: true, isUpdate: isUpdateResult });
