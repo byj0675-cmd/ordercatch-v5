@@ -26,7 +26,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const finalCategory = profile?.category || store.type;
   const finalOwner = profile?.owner_name || store.owner;
 
-  const webhookUrl = `${baseUrl}/api/webhook/kakao?storeId=${finalStoreSlug}`;
+  const webhookUrl = `${baseUrl}/api/webhook/kakao?storeSlug=${finalStoreSlug}`;
   const orderLink = `${baseUrl}/order/${finalStoreSlug}`;
 
   const copyToClipboard = async (text: string, label: string) => {
