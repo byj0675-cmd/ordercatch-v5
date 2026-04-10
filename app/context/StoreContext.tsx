@@ -29,8 +29,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // onAuthStateChange가 초기 세션 포함 모든 상태를 처리하므로 getSession 별도 호출 불필요
+    let initialized = false;
+
+    // getSession으로 즉시 로드 (빠른 초기 렌더링)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        initialized = true;
+        loadProfileData(session.user.id);
+      } else if (!initialized) {
+        setLoading(false);
+      }
+    });
+
+    // 이후 로그인/로그아웃 이벤트 처리
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'INITIAL_SESSION') return; // getSession이 이미 처리
       if (session?.user) {
         await loadProfileData(session.user.id);
       } else {

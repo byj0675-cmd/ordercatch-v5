@@ -32,15 +32,14 @@ export async function POST(req: Request) {
     let storeId: string | null = null;
 
     if (slugFromParam) {
-      // URL 파라미터로 매장 직접 조회
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id')
         .eq('store_slug', slugFromParam)
         .single();
+      if (profileError) console.error('[Kakao Webhook] Profile lookup error:', profileError.message, 'slug:', slugFromParam);
       storeId = profile?.id || null;
     } else {
-      // 폴백: 메시지 본문에서 oc-xxxxxxxx 슬러그 추출
       const slugMatch = utterance.match(/oc-[a-z0-9]{8}/i);
       if (slugMatch) {
         const { data: profile } = await supabase
@@ -53,8 +52,9 @@ export async function POST(req: Request) {
     }
 
     if (!storeId) {
+      console.error('[Kakao Webhook] storeId not found. slugFromParam:', slugFromParam);
       return kakaoSimpleText(
-        '매장 연결에 실패했습니다.\n설정에서 웹훅 URL을 다시 확인해 주세요.'
+        `[오류] 매장을 찾을 수 없습니다. (코드: ${slugFromParam || '없음'})\n설정에서 웹훅 URL을 다시 확인해 주세요.`
       );
     }
 
