@@ -60,7 +60,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!loading) {
-      if (!profile || !profile.store_name) {
+      if (!profile) {
+        // 비로그인 → 랜딩으로
+        router.replace("/");
+        return;
+      }
+      if (!profile.store_name) {
         setShowOnboarding(true);
       } else {
         setShowOnboarding(false);
@@ -223,6 +228,17 @@ export default function Dashboard() {
       weekday: "long",
     });
   }, [mounted]);
+
+  // 로딩 중 — 전체 화면 스피너
+  if (loading) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+        <div style={{ width: 40, height: 40, border: "3px solid rgba(0,122,255,0.2)", borderTopColor: "#007aff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>로딩 중...</div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   return (
     <>
