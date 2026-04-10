@@ -53,7 +53,13 @@ export async function POST(req: Request) {
         options: orderData.options
       }]);
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        // unique 제약 위반 시 더 명확한 메시지 반환
+        if (insertError.code === '23505') {
+          throw new Error('이미 동일한 주문이 존재합니다. 수정 의도라면 메시지에 "수정" 또는 "변경"을 포함해 주세요.');
+        }
+        throw insertError;
+      }
     }
 
     return NextResponse.json({ success: true, isUpdate: isUpdateResult });

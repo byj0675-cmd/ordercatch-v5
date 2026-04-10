@@ -5,6 +5,10 @@ ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS owner_name TEXT,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
+-- 잘못된 unique 제약 제거: 같은 고객이 여러 주문을 넣을 수 있어야 함
+ALTER TABLE public.orders
+  DROP CONSTRAINT IF EXISTS unique_store_customer;
+
 -- INSERT 정책 (init_profiles.sql에 없음)
 DO $$
 BEGIN
