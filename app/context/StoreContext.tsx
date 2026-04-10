@@ -29,23 +29,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    const fetchProfile = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadProfileData(session.user.id);
-      } else {
-        // Prevent race condition: If there's an OAuth token/code in the URL, wait for onAuthStateChange to handle it
-        if (typeof window !== 'undefined' && (window.location.search.includes('code=') || window.location.hash.includes('access_token='))) {
-          return;
-        }
-        setProfile(null);
-        setLoading(false);
-      }
-    };
-    fetchProfile();
-
-    // Listen to Auth state changes
+    // onAuthStateChange가 초기 세션 포함 모든 상태를 처리하므로 getSession 별도 호출 불필요
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         await loadProfileData(session.user.id);
