@@ -14,7 +14,7 @@ import OrderDetailModal from "../components/OrderDetailModal";
 import SettingsModal from "../components/SettingsModal";
 import PasteBoard from "../components/PasteBoard";
 import { useStoreProvider } from "../context/StoreContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 
 
@@ -42,6 +42,7 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
 
   const { profile, loading, updateStoreProfile } = useStoreProvider();
+  const searchParams = useSearchParams();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardName, setOnboardName] = useState("");
   const [onboardCategory, setOnboardCategory] = useState("dessert");
@@ -50,6 +51,11 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    const code = searchParams.get("code");
+    if (code) {
+      window.location.replace(`/auth/callback?code=${code}`);
+      return;
+    }
     setMounted(true);
     // 1회만 표시되도록 단순 타이머 처리
     const timer = setTimeout(() => {
