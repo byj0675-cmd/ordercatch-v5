@@ -8,7 +8,10 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key-placeholder";
 
 export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
-  auth: { flowType: 'implicit' },
+  auth: {
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+  },
 });
 
 export const signInWithKakao = async () => {

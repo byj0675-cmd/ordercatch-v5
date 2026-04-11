@@ -8,14 +8,28 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
+    // detectSessionInUrl: true 설정으로 Supabase가 ?code= 또는 #access_token= 을 자동 처리
+    // onAuthStateChange로 결과를 기다림
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
         router.replace("/dashboard");
-      } else if (event === 'INITIAL_SESSION' && !session) {
-        window.location.replace("/?error=로그인에 실패했습니다. 다시 시도해 주세요.");
       }
     });
-    return () => subscription.unsubscribe();
+
+    const timeout = setTimeout(() => {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          router.replace("/dashboard");
+        } else {
+          window.location.replace("/?error=로그인에+실패했습니다.+다시+시도해주세요.");
+        }
+      });
+    }, 8000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
