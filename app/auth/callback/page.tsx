@@ -15,13 +15,23 @@ export default function AuthCallback() {
       return;
     }
 
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        window.location.replace(`/?error=${encodeURIComponent(error.message)}`);
-      } else {
-        router.replace("/dashboard");
-      }
-    });
+    const timeout = setTimeout(() => {
+      window.location.replace("/?error=timeout%3A%20exchangeCodeForSession%20did%20not%20respond");
+    }, 8000);
+
+    supabase.auth.exchangeCodeForSession(code)
+      .then(({ data, error }) => {
+        clearTimeout(timeout);
+        if (error) {
+          window.location.replace(`/?error=${encodeURIComponent(error.message)}`);
+        } else {
+          router.replace("/dashboard");
+        }
+      })
+      .catch((err: any) => {
+        clearTimeout(timeout);
+        window.location.replace(`/?error=${encodeURIComponent(String(err))}`);
+      });
   }, []);
 
   return (
