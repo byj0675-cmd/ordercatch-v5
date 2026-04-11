@@ -154,7 +154,7 @@ function LandingContent() {
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) router.replace(`/auth/callback?code=${code}`);
+    if (code) window.location.replace(`/auth/callback?code=${code}`);
   }, [searchParams, router]);
 
   useEffect(() => {
