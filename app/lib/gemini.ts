@@ -86,14 +86,12 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 또한, 텍스트가 신규 예약/주문 건인지, 아니면 기존 예약에 대한 날짜/시간/품목/옵션 변경(수정) 요청인지 파악하여 'intent' 필드에 'new' 또는 'update'로 명시하십시오. (예: "날짜 바꿀게요", "내용 변경합니다" -> update)
 다음 주문 메시지에서 주문 정보를 추출하십시오.
 
-"[오더캐치 주문서]" 형식의 메시지인 경우 아래 필드를 우선 파싱하세요:
-- 이름 → customerName
-- 연락처 → phone
-- 상품 → productName
-- 픽업일시 → pickupDate (ISO 8601)
-- 요청사항 → options.memo
-
-비정형 메시지인 경우 문맥에서 최대한 추출하세요.
+"[오더캐치 주문서]" 형식의 메시지입니다. 아래 규칙으로 파싱하세요:
+- 이름/성함 → customerName
+- 연락처/전화번호 → phone
+- 상품/케이크/서비스/메뉴 등 → productName
+- 픽업일시/방문일시/예약일 → pickupDate (ISO 8601, 시간 없으면 빈 문자열)
+- 위 4개 필드 외 나머지 모든 항목(레터링, 알러지, 디자인, 수량, 주소, 결제방법 등) → options 객체에 키:값 형태로 저장
 매장 고유 코드(oc-로 시작)나 시스템 안내 문구는 무시하세요.
 `;
 
