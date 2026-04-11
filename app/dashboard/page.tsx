@@ -14,7 +14,7 @@ import OrderDetailModal from "../components/OrderDetailModal";
 import SettingsModal from "../components/SettingsModal";
 import PasteBoard from "../components/PasteBoard";
 import { useStoreProvider } from "../context/StoreContext";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 
 
@@ -42,7 +42,6 @@ export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
 
   const { profile, loading, updateStoreProfile } = useStoreProvider();
-  const searchParams = useSearchParams();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardName, setOnboardName] = useState("");
   const [onboardCategory, setOnboardCategory] = useState("dessert");
@@ -51,7 +50,7 @@ export default function Dashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const code = searchParams.get("code");
+    const code = new URLSearchParams(window.location.search).get("code");
     if (code) {
       window.location.replace(`/auth/callback?code=${code}`);
       return;
