@@ -58,10 +58,21 @@ export async function POST(req: Request) {
       );
     }
 
+    // ── 오더캐치 주문서 감지 ──────────────────────────────────
+    // 고객이 "[오더캐치 주문서]" 포함 메시지를 보낸 경우 해당 블록만 추출
+    const ORDER_FORM_MARKER = '[오더캐치 주문서]';
+    let textToParse = utterance;
+
+    if (utterance.includes(ORDER_FORM_MARKER)) {
+      // 마커 시작 위치부터 끝까지 추출 (앞의 잡담 제거)
+      const markerIdx = utterance.indexOf(ORDER_FORM_MARKER);
+      textToParse = utterance.slice(markerIdx);
+    }
+
     // ── Gemini AI 파싱 (4.5초 타임아웃 — 카카오 5초 제한 대응) ──
     let parsedOrder;
     try {
-      const parsePromise = parseOrderWithGemini(utterance);
+      const parsePromise = parseOrderWithGemini(textToParse);
       const timeoutPromise = new Promise<null>((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), 4500)
       );
