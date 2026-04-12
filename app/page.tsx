@@ -1,6 +1,7 @@
 "use client";
 
 import { signInWithKakao, supabase } from "@/utils/supabase/client";
+import { showToast } from "@/app/components/Toast";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -151,17 +152,12 @@ function LandingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [scrolled, setScrolled] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     const code = searchParams.get("code");
-    if (code) window.location.replace(`/auth/callback?code=${code}`);
+    if (code) { window.location.replace(`/auth/callback?code=${code}`); return; }
     const error = searchParams.get("error");
-    if (error) setAuthError(decodeURIComponent(error));
-  }, [searchParams, router]);
-
-  // 이미 로그인된 상태면 대시보드로
-  useEffect(() => {
+    if (error) showToast(`로그인 오류: ${decodeURIComponent(error)}`, "error");
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.replace("/dashboard");
     });
@@ -211,19 +207,6 @@ function LandingContent() {
           </div>
         </div>
       </header>
-
-      {/* ── Auth Error Banner ── */}
-      {authError && (
-        <div style={{
-          position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)",
-          zIndex: 200, background: "#fee2e2", border: "1px solid #f87171",
-          borderRadius: 10, padding: "12px 20px", maxWidth: 600, width: "90%",
-          fontSize: 13, color: "#991b1b", fontFamily: "monospace", wordBreak: "break-all",
-        }}>
-          <strong>로그인 오류:</strong> {authError}
-          <button onClick={() => setAuthError(null)} style={{ marginLeft: 12, background: "none", border: "none", cursor: "pointer", fontWeight: 700, color: "#991b1b" }}>✕</button>
-        </div>
-      )}
 
       {/* ── Hero ── */}
       <section style={{
