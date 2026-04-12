@@ -1,15 +1,15 @@
-import { createBrowserClient } from "@supabase/ssr";
-
-// .env 파일에 추가될 환경 변수들입니다:
-// NEXT_PUBLIC_SUPABASE_URL=...
-// NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+import { createClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key-placeholder";
 
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+// createBrowserClient(@supabase/ssr)는 cookie storage를 사용하는데
+// Netlify 환경에서 PKCE verifier가 유실되는 버그가 있음.
+// createClient(@supabase/supabase-js)는 localStorage를 사용해서 안정적.
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    flowType: 'pkce',
+    persistSession: true,
+    autoRefreshToken: true,
     detectSessionInUrl: true,
   },
 });
