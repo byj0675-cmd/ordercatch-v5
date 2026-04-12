@@ -199,18 +199,10 @@ body {
   color: var(--accent);
 }
 
-/* ── Responsive: Summary Cards ── */
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 24px;
-}
-@media (min-width: 768px) {
-  .summary-grid {
-    grid-template-columns: repeat(6, 1fr);
-    gap: 12px;
-  }
+/* ── Bento Grid (모바일: 2열) ── */
+@media (max-width: 767px) {
+  .bento-large { grid-column: span 1 !important; }
+  .bento-grid-wrap { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ── Responsive: ListView Table vs Cards ── */

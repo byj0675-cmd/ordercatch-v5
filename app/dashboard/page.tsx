@@ -180,6 +180,24 @@ export default function Dashboard() {
     [filteredOrders]
   );
 
+  const todayStats = useMemo(() => {
+    if (!mounted) return { count: 0, revenue: 0, completed: 0 };
+    const today = new Date();
+    const todayOrders = orders.filter((o) => {
+      const d = new Date(o.pickupDate);
+      return (
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate()
+      );
+    });
+    return {
+      count: todayOrders.length,
+      revenue: todayOrders.reduce((s, o) => s + o.amount, 0),
+      completed: todayOrders.filter((o) => o.status === "픽업완료").length,
+    };
+  }, [orders, mounted]);
+
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
     try {
       const { error } = await supabase
@@ -290,24 +308,48 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="summary-grid">
-            {SUMMARY_CARDS.map((card) => {
-              const count = summaryData[card.key];
+          {/* ── 벤토 그리드 ── */}
+          <div className="bento-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+
+            {/* 대형 카드 1 — 오늘 픽업 */}
+            <button
+              onClick={() => setActiveFilter("픽업예정")}
+              style={{ gridColumn: "span 2", background: activeFilter === "픽업예정" ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "픽업예정" ? "translateY(-2px)" : "none" }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "픽업예정" ? "rgba(255,255,255,0.7)" : "#6B7280", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>오늘 픽업</div>
+              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "픽업예정" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{todayStats.count}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
+              <div style={{ fontSize: 13, color: activeFilter === "픽업예정" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>완료 {todayStats.completed}건 · 대기 {todayStats.count - todayStats.completed}건</div>
+            </button>
+
+            {/* 대형 카드 2 — 오늘 매출 */}
+            <button
+              onClick={() => setActiveFilter("all")}
+              style={{ gridColumn: "span 2", background: activeFilter === "all" ? "linear-gradient(135deg, #0ea5e9, #6366f1)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "all" ? "translateY(-2px)" : "none" }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "all" ? "rgba(255,255,255,0.7)" : "#6B7280", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>오늘 매출</div>
+              <div style={{ fontSize: 32, fontWeight: 800, color: activeFilter === "all" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>
+                {todayStats.revenue > 0 ? `₩${todayStats.revenue.toLocaleString()}` : "-"}
+              </div>
+              <div style={{ fontSize: 13, color: activeFilter === "all" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>전체 {summaryData.all}건 · 총 ₩{totalRevenue.toLocaleString()}</div>
+            </button>
+
+            {/* 소형 카드 4개 */}
+            {[
+              { key: "입금대기" as FilterKey, label: "입금 대기", icon: "💳", color: "#f59e0b", activeBg: "#fef3c7" },
+              { key: "제작중" as FilterKey, label: "제작 중", icon: "🔨", color: "#3b82f6", activeBg: "#dbeafe" },
+              { key: "픽업완료" as FilterKey, label: "픽업 완료", icon: "✅", color: "#10b981", activeBg: "#d1fae5" },
+              { key: "취소됨" as FilterKey, label: "취소", icon: "✕", color: "#ef4444", activeBg: "#fee2e2" },
+            ].map((card) => {
               const isActive = activeFilter === card.key;
               return (
                 <button
                   key={card.key}
-                  id={`filter-${card.key}`}
                   onClick={() => setActiveFilter(card.key)}
-                  className="glass-card summary-card-pad"
-                  style={{ border: isActive ? `2px solid ${card.color}` : "1px solid var(--border)", borderRadius: 14, cursor: "pointer", textAlign: "left", background: isActive ? card.color + "14" : "var(--bg-card)", transition: "all 0.2s ease", transform: isActive ? "translateY(-2px)" : "none", boxShadow: isActive ? `0 8px 24px ${card.color}22` : "var(--shadow-sm)" }}
+                  style={{ background: isActive ? card.activeBg : "#fff", borderRadius: 16, padding: "16px 18px", border: isActive ? `1.5px solid ${card.color}40` : "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: isActive ? "translateY(-2px)" : "none" }}
                 >
-                  <div className="summary-card-icon">{card.icon}</div>
-                  <div className="summary-card-count" style={{ color: isActive ? card.color : "var(--text-primary)" }}>{count}</div>
-                  <div className="summary-card-label" style={{ color: isActive ? card.color : "var(--text-secondary)", fontWeight: isActive ? 700 : 500 }}>{card.label}</div>
-                  {card.key === "all" && totalRevenue > 0 && (
-                    <div style={{ fontSize: 10, color: "var(--accent)", marginTop: 3, fontWeight: 600 }}>{totalRevenue.toLocaleString()}원</div>
-                  )}
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>{card.icon}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: isActive ? card.color : "#111827", lineHeight: 1, marginBottom: 4 }}>{summaryData[card.key]}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? card.color : "#6B7280" }}>{card.label}</div>
                 </button>
               );
             })}
