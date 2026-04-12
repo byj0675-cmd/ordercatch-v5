@@ -1,6 +1,6 @@
 "use client";
 
-import { signInWithKakao } from "@/utils/supabase/client";
+import { signInWithKakao, supabase } from "@/utils/supabase/client";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -159,6 +159,13 @@ function LandingContent() {
     const error = searchParams.get("error");
     if (error) setAuthError(decodeURIComponent(error));
   }, [searchParams, router]);
+
+  // 이미 로그인된 상태면 대시보드로
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) router.replace("/dashboard");
+    });
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
