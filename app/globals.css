@@ -345,3 +345,41 @@ body {
   .mobile-only  { display: none; }
   .desktop-only { display: block; }
 }
+
+/* ── Bottom Sheet ── */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0.6; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.bottom-sheet {
+  max-height: 90vh;
+}
+@media (min-width: 640px) {
+  .bottom-sheet {
+    max-height: 80vh;
+  }
+}
+
+
+/* ── Print ── */
+@media print {
+  #dashboard-main  { display: none !important; }
+  .fab-wrap        { display: none !important; }
+  #print-section   { display: block !important; }
+
+  @page {
+    size: A4;
+    margin: 18mm 14mm;
+  }
+
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+#print-section {
+  display: none;
+}
+

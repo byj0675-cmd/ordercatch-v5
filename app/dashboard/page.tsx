@@ -13,6 +13,8 @@ import CalendarView from "../components/CalendarView";
 import OrderDetailModal from "../components/OrderDetailModal";
 import SettingsModal from "../components/SettingsModal";
 import PasteBoard from "../components/PasteBoard";
+import ManualOrderSheet from "../components/ManualOrderSheet";
+import FAB from "../components/FAB";
 import { useStoreProvider } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
@@ -37,6 +39,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showManualSheet, setShowManualSheet] = useState(false);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
   const [isFetching, setIsFetching] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -180,23 +183,26 @@ export default function Dashboard() {
     [filteredOrders]
   );
 
-  const todayStats = useMemo(() => {
-    if (!mounted) return { count: 0, revenue: 0, completed: 0 };
+  const todayOrders = useMemo(() => {
+    if (!mounted) return [];
     const today = new Date();
-    const todayOrders = orders.filter((o) => {
-      const d = new Date(o.pickupDate);
-      return (
-        d.getFullYear() === today.getFullYear() &&
-        d.getMonth() === today.getMonth() &&
-        d.getDate() === today.getDate()
-      );
-    });
-    return {
-      count: todayOrders.length,
-      revenue: todayOrders.reduce((s, o) => s + o.amount, 0),
-      completed: todayOrders.filter((o) => o.status === "픽업완료").length,
-    };
+    return orders
+      .filter((o) => {
+        const d = new Date(o.pickupDate);
+        return (
+          d.getFullYear() === today.getFullYear() &&
+          d.getMonth() === today.getMonth() &&
+          d.getDate() === today.getDate()
+        );
+      })
+      .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
   }, [orders, mounted]);
+
+  const todayStats = useMemo(() => ({
+    count: todayOrders.length,
+    revenue: todayOrders.reduce((s, o) => s + o.amount, 0),
+    completed: todayOrders.filter((o) => o.status === "픽업완료").length,
+  }), [todayOrders]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
     try {
@@ -263,11 +269,13 @@ export default function Dashboard() {
     );
   }
 
+  const handlePrint = () => window.print();
+
   return (
     <>
       <ToastContainer />
 
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
+      <div id="dashboard-main" style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
         <header
           style={{
             position: "sticky",
@@ -388,7 +396,62 @@ export default function Dashboard() {
 
       {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onStatusChange={handleStatusChange} />}
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}
-      
+      {showManualSheet && profile?.id && (
+        <ManualOrderSheet
+          storeId={profile.id}
+          onClose={() => setShowManualSheet(false)}
+          onSaved={() => fetchOrders(profile.id)}
+        />
+      )}
+
+      <FAB onAddOrder={() => setShowManualSheet(true)} onPrint={handlePrint} />
+
+      {/* ── 프린트 전용 섹션 (화면에는 숨김, @media print 에서만 표시) ── */}
+      <div id="print-section">
+        <div style={{ padding: "20px 28px", fontFamily: "sans-serif" }}>
+          <div style={{ borderBottom: "2px solid #111", paddingBottom: 12, marginBottom: 20 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>
+              {profile?.store_name} — 오늘 주문 출력
+            </h1>
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555" }}>
+              {mounted ? new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) : ""}&nbsp;&nbsp;
+              총 {todayOrders.length}건 &nbsp;|&nbsp; {todayOrders.reduce((s, o) => s + o.amount, 0).toLocaleString()}원
+            </p>
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "1.5px solid #ccc" }}>
+                {["번호", "픽업시간", "고객명", "상품", "레터링 / 요청", "금액", "상태"].map((h) => (
+                  <th key={h} style={{ padding: "8px 6px", textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {todayOrders.map((o, i) => {
+                const d = new Date(o.pickupDate);
+                const timeStr = isNaN(d.getTime()) ? "-" : `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+                return (
+                  <tr key={o.id} style={{ borderBottom: "1px solid #eee" }}>
+                    <td style={{ padding: "8px 6px", color: "#888" }}>{i + 1}</td>
+                    <td style={{ padding: "8px 6px", fontWeight: 700 }}>{timeStr}</td>
+                    <td style={{ padding: "8px 6px", fontWeight: 700 }}>{o.customerName}</td>
+                    <td style={{ padding: "8px 6px" }}>{o.productName}</td>
+                    <td style={{ padding: "8px 6px", color: (o.options.memo || o.options.custom) ? "#92400E" : "#aaa" }}>
+                      {o.options.memo || o.options.custom || "-"}
+                    </td>
+                    <td style={{ padding: "8px 6px", whiteSpace: "nowrap" }}>{o.amount > 0 ? `${o.amount.toLocaleString()}원` : "-"}</td>
+                    <td style={{ padding: "8px 6px" }}>{o.status}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {todayOrders.length === 0 && (
+            <p style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 14 }}>오늘 픽업 주문이 없습니다.</p>
+          )}
+        </div>
+      </div>
+
       {showOnboarding && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div className="animate-scaleIn" style={{ background: "#fff", padding: "32px", borderRadius: "24px", width: "100%", maxWidth: "400px", boxShadow: "0 24px 48px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 20, maxHeight: "90vh", overflowY: "auto" }}>
