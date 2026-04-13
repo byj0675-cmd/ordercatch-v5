@@ -205,6 +205,15 @@ body {
   .bento-grid-wrap { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
+/* ── Order Card Hover ── */
+.order-card-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.10) !important;
+}
+.order-card-btn:active {
+  transform: translateY(0);
+}
+
 /* ── Responsive: ListView Table vs Cards ── */
 /* Mobile: hide table, show cards */
 .list-table-wrap { display: none; }
