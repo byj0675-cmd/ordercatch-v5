@@ -227,6 +227,28 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("정말 이 주문을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (error) throw error;
+
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(null);
+      }
+      showToast("주문이 삭제되었습니다.", "success");
+    } catch (err) {
+      console.error("Delete order error:", err);
+      showToast("주문 삭제에 실패했습니다.", "error");
+    }
+  };
+
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -394,7 +416,7 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onStatusChange={handleStatusChange} />}
+      {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} />}
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}
       {showManualSheet && profile?.id && (
         <ManualOrderSheet

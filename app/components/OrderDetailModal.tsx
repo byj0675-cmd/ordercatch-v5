@@ -7,11 +7,12 @@ interface OrderDetailModalProps {
   order: Order;
   onClose: () => void;
   onStatusChange?: (orderId: string, newStatus: Order["status"]) => void;
+  onDelete?: (orderId: string) => void;
 }
 
 const STATUSES: Order["status"][] = ["입금대기", "제작중", "픽업예정", "픽업완료", "취소됨"];
 
-export default function OrderDetailModal({ order, onClose, onStatusChange }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete }: OrderDetailModalProps) {
   const cfg = STATUS_CONFIG[order.status];
   const src = SOURCE_CONFIG[order.source];
 
@@ -239,10 +240,31 @@ export default function OrderDetailModal({ order, onClose, onStatusChange }: Ord
             </button>
           </div>
 
-          {/* Order ID / Created */}
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", display: "flex", gap: 16 }}>
-            <span>주문 ID: <code style={{ fontFamily: "var(--font-geist-mono)" }}>{order.id}</code></span>
-            <span>등록: {new Date(order.createdAt).toLocaleDateString("ko-KR")}</span>
+          <div style={{ padding: "16px 0 0", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)", display: "flex", gap: 16 }}>
+              <span>주문 ID: <code style={{ fontFamily: "var(--font-geist-mono)" }}>{order.id.slice(0, 8)}</code></span>
+              <span>등록: {new Date(order.createdAt).toLocaleDateString("ko-KR")}</span>
+            </div>
+            
+            {onDelete && (
+              <button
+                onClick={() => onDelete(order.id)}
+                style={{
+                  background: "transparent",
+                  color: "#FF3B30",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  border: "none",
+                  cursor: "pointer",
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,59,48,0.1)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                🗑️ 삭제
+              </button>
+            )}
           </div>
         </div>
       </div>
