@@ -6,6 +6,8 @@ import { Order, STATUS_CONFIG } from "../lib/mockData";
 interface CalendarViewProps {
   orders: Order[];
   onOrderClick: (order: Order) => void;
+  onDayClick?: (date: Date) => void;
+  selectedDay?: Date | null;
 }
 
 // ── 날짜 유틸 ──────────────────────────────────────
@@ -51,7 +53,7 @@ function OptionChips({ options }: { options: Order["options"] }) {
 
 // ── 주문 카드 (모바일용) ───────────────────────────
 function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
-  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["입금대기"];
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
   const highlight = order.options.memo || order.options.custom;
   return (
     <button
@@ -118,22 +120,37 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
 }
 
 // ── 날짜 섹션 헤더 ────────────────────────────────
-function DaySection({ label, sublabel, orders, onOrderClick, accent }: {
+function DaySection({ label, sublabel, orders, onOrderClick, accent, onHeaderClick }: {
   label: string;
   sublabel?: string;
   orders: Order[];
   onOrderClick: (o: Order) => void;
   accent?: string;
+  onHeaderClick?: () => void;
 }) {
   const revenue = orders.reduce((s, o) => s + o.amount, 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+      <div
+        onClick={onHeaderClick}
+        style={{
+          display: "flex", alignItems: "baseline", gap: 8,
+          cursor: onHeaderClick ? "pointer" : "default",
+          padding: "4px 0",
+          borderRadius: 8,
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={(e) => { if (onHeaderClick) (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.03)"; }}
+        onMouseLeave={(e) => { if (onHeaderClick) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+      >
         <span style={{ fontSize: 16, fontWeight: 800, color: accent || "var(--text-primary)" }}>{label}</span>
         {sublabel && <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{sublabel}</span>}
         <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", marginLeft: "auto" }}>
           {orders.length}건{revenue > 0 ? ` · ${revenue.toLocaleString()}원` : ""}
         </span>
+        {onHeaderClick && (
+          <span style={{ fontSize: 11, color: "var(--text-tertiary)", flexShrink: 0 }}>상세 보기 ›</span>
+        )}
       </div>
       {orders.length === 0 ? (
         <div style={{ padding: "16px 0", textAlign: "center", fontSize: 13, color: "var(--text-tertiary)" }}>
@@ -149,7 +166,7 @@ function DaySection({ label, sublabel, orders, onOrderClick, accent }: {
 }
 
 // ── 모바일 뷰 ─────────────────────────────────────
-function MobileView({ orders, onOrderClick }: CalendarViewProps) {
+function MobileView({ orders, onOrderClick, onDayClick }: CalendarViewProps) {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
@@ -174,13 +191,13 @@ function MobileView({ orders, onOrderClick }: CalendarViewProps) {
   }).sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
 
   // 이후 주문을 날짜별로 그룹핑
-  const upcomingByDay: { label: string; orders: Order[] }[] = [];
+  const upcomingByDay: { label: string; date: Date; orders: Order[] }[] = [];
   afterTomorrow.forEach(o => {
     const d = new Date(o.pickupDate);
     const label = formatDate(d);
     const existing = upcomingByDay.find(g => g.label === label);
     if (existing) existing.orders.push(o);
-    else upcomingByDay.push({ label, orders: [o] });
+    else upcomingByDay.push({ label, date: new Date(d.getFullYear(), d.getMonth(), d.getDate()), orders: [o] });
   });
 
   return (
@@ -215,6 +232,7 @@ function MobileView({ orders, onOrderClick }: CalendarViewProps) {
           orders={todayOrders}
           onOrderClick={onOrderClick}
           accent="#007aff"
+          onHeaderClick={onDayClick ? () => onDayClick(new Date(today.getFullYear(), today.getMonth(), today.getDate())) : undefined}
         />
       </div>
 
@@ -226,6 +244,7 @@ function MobileView({ orders, onOrderClick }: CalendarViewProps) {
           orders={tomorrowOrders}
           onOrderClick={onOrderClick}
           accent="#af52de"
+          onHeaderClick={onDayClick ? () => onDayClick(new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())) : undefined}
         />
       </div>
 
@@ -241,6 +260,7 @@ function MobileView({ orders, onOrderClick }: CalendarViewProps) {
               label={group.label}
               orders={group.orders}
               onOrderClick={onOrderClick}
+              onHeaderClick={onDayClick ? () => onDayClick(group.date) : undefined}
             />
           ))}
         </div>
@@ -249,8 +269,8 @@ function MobileView({ orders, onOrderClick }: CalendarViewProps) {
   );
 }
 
-// ── 데스크톱 캘린더 뷰 (기존 유지) ──────────────────
-function DesktopCalendar({ orders, onOrderClick }: CalendarViewProps) {
+// ── 데스크톱 캘린더 뷰 ──────────────────────────────
+function DesktopCalendar({ orders, onOrderClick, onDayClick, selectedDay }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();
@@ -261,6 +281,13 @@ function DesktopCalendar({ orders, onOrderClick }: CalendarViewProps) {
   const today = new Date();
   const isToday = (d: number) =>
     d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+
+  const isSelected = (d: number) =>
+    selectedDay !== null &&
+    selectedDay !== undefined &&
+    d === selectedDay.getDate() &&
+    month === selectedDay.getMonth() &&
+    year === selectedDay.getFullYear();
 
   const ordersByDay: Record<number, Order[]> = {};
   orders.forEach((order) => {
@@ -308,8 +335,38 @@ function DesktopCalendar({ orders, onOrderClick }: CalendarViewProps) {
           const dayOrders = day ? (ordersByDay[day] || []) : [];
           const isSun = idx % 7 === 0;
           const isSat = idx % 7 === 6;
+          const selected = day ? isSelected(day) : false;
           return (
-            <div key={idx} style={{ minHeight: 110, padding: "8px 6px 6px", borderRight: (idx + 1) % 7 === 0 ? "none" : "1px solid rgba(0,0,0,0.05)", borderBottom: idx < cells.length - 7 ? "1px solid rgba(0,0,0,0.05)" : "none", background: day && isToday(day) ? "rgba(0,122,255,0.04)" : "transparent" }}>
+            <div
+              key={idx}
+              onClick={() => {
+                if (day && onDayClick) {
+                  onDayClick(new Date(year, month, day));
+                }
+              }}
+              style={{
+                minHeight: 110,
+                padding: "8px 6px 6px",
+                borderRight: (idx + 1) % 7 === 0 ? "none" : "1px solid rgba(0,0,0,0.05)",
+                borderBottom: idx < cells.length - 7 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                background: selected
+                  ? "rgba(0,122,255,0.08)"
+                  : day && isToday(day)
+                  ? "rgba(0,122,255,0.04)"
+                  : "transparent",
+                cursor: day ? "pointer" : "default",
+                transition: "background 0.15s",
+                outline: selected ? "2px solid rgba(0,122,255,0.35)" : "none",
+                outlineOffset: "-2px",
+                borderRadius: selected ? 8 : 0,
+              }}
+              onMouseEnter={(e) => {
+                if (day) (e.currentTarget as HTMLElement).style.background = selected ? "rgba(0,122,255,0.12)" : "rgba(0,0,0,0.03)";
+              }}
+              onMouseLeave={(e) => {
+                if (day) (e.currentTarget as HTMLElement).style.background = selected ? "rgba(0,122,255,0.08)" : (isToday(day!) ? "rgba(0,122,255,0.04)" : "transparent");
+              }}
+            >
               {day && (
                 <>
                   <div style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontSize: 13, fontWeight: isToday(day) ? 800 : 500, background: isToday(day) ? "var(--accent)" : "transparent", color: isToday(day) ? "#fff" : isSun ? "#ff3b30" : isSat ? "#007aff" : "var(--text-primary)", marginBottom: 4 }}>{day}</div>
@@ -319,7 +376,7 @@ function DesktopCalendar({ orders, onOrderClick }: CalendarViewProps) {
                       const d = new Date(order.pickupDate);
                       const timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
                       return (
-                        <button key={order.id} onClick={() => onOrderClick(order)} style={{ display: "block", width: "100%", padding: "3px 6px", borderRadius: 5, background: cfg.bg, border: "none", cursor: "pointer", textAlign: "left" }}>
+                        <button key={order.id} onClick={(e) => { e.stopPropagation(); onOrderClick(order); }} style={{ display: "block", width: "100%", padding: "3px 6px", borderRadius: 5, background: cfg.bg, border: "none", cursor: "pointer", textAlign: "left" }}>
                           <div style={{ fontSize: 10, fontWeight: 700, color: cfg.color, lineHeight: 1.2 }}>{timeStr} {order.customerName}</div>
                           <div style={{ fontSize: 10, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>{order.productName}</div>
                         </button>
@@ -338,16 +395,16 @@ function DesktopCalendar({ orders, onOrderClick }: CalendarViewProps) {
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────
-export default function CalendarView({ orders, onOrderClick }: CalendarViewProps) {
+export default function CalendarView({ orders, onOrderClick, onDayClick, selectedDay }: CalendarViewProps) {
   return (
     <>
       {/* 모바일 (768px 미만) */}
       <div className="mobile-only">
-        <MobileView orders={orders} onOrderClick={onOrderClick} />
+        <MobileView orders={orders} onOrderClick={onOrderClick} onDayClick={onDayClick} />
       </div>
       {/* 데스크톱 (768px 이상) */}
       <div className="desktop-only">
-        <DesktopCalendar orders={orders} onOrderClick={onOrderClick} />
+        <DesktopCalendar orders={orders} onOrderClick={onOrderClick} onDayClick={onDayClick} selectedDay={selectedDay} />
       </div>
     </>
   );

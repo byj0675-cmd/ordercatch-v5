@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git push:*)",
+      "WebFetch(domain:sparkly-seahorse-2d156e.netlify.app)",
+      "Bash(git commit:*)",
+      "Bash(npm run:*)"
+    ]
+  }
+}

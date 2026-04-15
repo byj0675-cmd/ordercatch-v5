@@ -13,12 +13,12 @@ export async function POST(req: Request) {
 
     let isUpdateResult = false;
 
-    if (orderData.intent === 'update') {
+    if (orderData.intent === 'update' || orderData.existingId) {
       // 수정 의도 — 기존 주문 찾기 (우선순위 순)
-      let existingId: string | null = null;
+      let existingId: string | null = orderData.existingId || null;
 
       // 방법 1: 고객명 + 전화번호로 찾기 (가장 최근 주문)
-      if (orderData.customerName && orderData.phone) {
+      if (!existingId && orderData.customerName && orderData.phone) {
         const { data } = await supabase
           .from('orders')
           .select('id')
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 
       if (existingId) {
         // 변경된 필드만 업데이트 (null이면 기존 값 유지)
-        const updatePayload: Record<string, any> = { status: '수정됨' };
+        const updatePayload: Record<string, any> = {};
         if (orderData.productName) updatePayload.product_name = orderData.productName;
         if (orderData.pickupDate) updatePayload.pickup_date = new Date(orderData.pickupDate);
         if (orderData.options && Object.keys(orderData.options).length > 0) updatePayload.options = orderData.options;
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         phone: orderData.phone,
         product_name: orderData.productName,
         pickup_date: orderData.pickupDate ? new Date(orderData.pickupDate) : null,
-        status: '입금대기',
+        status: '신규주문',
         source: 'manual',
         options: orderData.options
       }]);

@@ -16,12 +16,14 @@ interface StoreContextProps {
   profile: Profile | null;
   loading: boolean;
   updateStoreProfile: (data: { store_name?: string; category?: string; owner_name?: string }) => Promise<boolean>;
+  loginAsMockUser: () => void;
 }
 
 const StoreContext = createContext<StoreContextProps>({
   profile: null,
   loading: true,
   updateStoreProfile: async () => false,
+  loginAsMockUser: () => {},
 });
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -119,8 +121,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const loginAsMockUser = () => {
+    const mockProfile: Profile = {
+      id: "mock-user-123",
+      email: "test@example.com",
+      store_name: "테스트 베이커리",
+      store_slug: "test-bakery",
+      category: "bakery",
+      owner_name: "테스터",
+    };
+    setProfile(mockProfile);
+    setLoading(false);
+    localStorage.setItem("ordercatch-mock-user", JSON.stringify(mockProfile));
+  };
+
+  useEffect(() => {
+    const saved = localStorage.getItem("ordercatch-mock-user");
+    if (saved && !profile) {
+      try {
+        setProfile(JSON.parse(saved));
+        setLoading(false);
+      } catch (e) {}
+    }
+  }, []);
+
   return (
-    <StoreContext.Provider value={{ profile, loading, updateStoreProfile }}>
+    <StoreContext.Provider value={{ profile, loading, updateStoreProfile, loginAsMockUser }}>
       {children}
     </StoreContext.Provider>
   );

@@ -2,8 +2,10 @@
 // Force refresh for Next.js 16 Turbopack cache - 2026-04-08
 
 import { useState } from "react";
-import { Order, SOURCE_CONFIG, STATUS_CONFIG } from "../lib/mockData";
+import { Order, SOURCE_CONFIG } from "../lib/mockData";
 import { showToast } from "./Toast";
+import { supabase } from "@/utils/supabase/client";
+import DuplicateCheckModal from "./DuplicateCheckModal";
 
 interface PasteBoardProps {
   onParsed?: (order: Partial<Order>) => void;
@@ -23,6 +25,10 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [parsedResult, setParsedResult] = useState<Record<string, string> | null>(null);
   const [rawParsedData, setRawParsedData] = useState<any>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // ── 중복 체크 상태 ────────────────────────────────────
+  const [existingOrders, setExistingOrders] = useState<Order[]>([]);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
   const handleParse = async () => {
     if (!text.trim()) {
@@ -70,15 +76,65 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveClick = async () => {
     if (!rawParsedData || isSaving) return;
-    
+
+    if (rawParsedData.customerName && rawParsedData.phone) {
+      try {
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("store_id", storeId)
+          .eq("customer_name", rawParsedData.customerName)
+          .eq("phone", rawParsedData.phone)
+          .order("created_at", { ascending: false });
+
+        if (!error && data && data.length > 0) {
+          const mappedOrders: Order[] = data.map((row) => ({
+            id: row.id,
+            storeId: row.store_id,
+            storeName: "",
+            storeType: "dessert",
+            customerName: row.customer_name,
+            phone: row.phone,
+            productName: row.product_name,
+            pickupDate: row.pickup_date,
+            status: row.status as any,
+            amount: row.amount,
+            options: row.options || {},
+            source: row.source,
+            createdAt: row.created_at || new Date().toISOString(),
+          }));
+
+          setExistingOrders(mappedOrders);
+          setShowDuplicateModal(true);
+          return;
+        }
+      } catch (e) {
+        console.error("Duplicate check failed:", e);
+      }
+    }
+
+    // 중복 없으면 바로 저장
+    await confirmSave();
+  };
+
+  const confirmSave = async (existingId?: string) => {
     setIsSaving(true);
+    setShowDuplicateModal(false);
+
     try {
+      const orderPayload = { ...rawParsedData };
+      if (existingId) {
+        orderPayload.existingId = existingId;
+      } else {
+        orderPayload.intent = "create"; // 명시적으로 강제 생성을 위해 세팅
+      }
+
       const res = await fetch("/api/orders/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderData: rawParsedData, storeId })
+        body: JSON.stringify({ orderData: orderPayload, storeId })
       });
       const result = await res.json();
 
@@ -94,7 +150,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
 
       // Refresh Dashboard list
       if (onParsed) {
-        onParsed({ productName: rawParsedData.productName, status: "입금대기" });
+        onParsed({ productName: rawParsedData.productName, status: "신규주문" });
       }
     } catch (e: any) {
       console.error(e);
@@ -303,13 +359,23 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
               className="btn"
               disabled={isSaving}
               style={{ background: "var(--green)", color: "#fff", opacity: isSaving ? 0.7 : 1 }}
-              onClick={handleSave}
+              onClick={handleSaveClick}
             >
               {isSaving ? "저장 중..." : "장부에 저장"}
             </button>
           )}
         </div>
       </div>
+
+      {/* 중복 감지 모달 */}
+      {showDuplicateModal && (
+        <DuplicateCheckModal
+          existingOrders={existingOrders}
+          onNewOrder={() => confirmSave()}
+          onEditOrder={(order) => confirmSave(order.id)}
+          onClose={() => setShowDuplicateModal(false)}
+        />
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

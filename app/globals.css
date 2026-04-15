@@ -383,3 +383,83 @@ body {
   display: none;
 }
 
+/* ── Drawer Animations & Display Control ── */
+.desktop-only {
+  display: flex !important;
+}
+.mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: flex !important;
+  }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes slideUpDrawer {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.drawer-desktop {
+  animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.drawer-mobile {
+  animation: slideUpDrawer 0.45s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+/* Drawer backdrop */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 100;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Hide scrollbar for drawer content */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 선택된 날짜 셀 하이라이트 */
+.cal-cell-selected {
+  background: rgba(0, 122, 255, 0.08) !important;
+  outline: 2px solid rgba(0, 122, 255, 0.3);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* ── Day Print Section ── */
+#day-print-section {
+  display: none;
+}
+
+@media print {
+  /* 날짜 드로어가 열린 상태(body에 data-drawer 속성이 있으면) day-print-section 출력 */
+  body[data-drawer="open"] #dashboard-main { display: none !important; }
+  body[data-drawer="open"] #print-section  { display: none !important; }
+  body[data-drawer="open"] #day-print-section { display: block !important; }
+
+  /* 드로어 없을 때는 기존 print-section 유지 (globals.css의 기존 규칙) */
+  body:not([data-drawer="open"]) #day-print-section { display: none !important; }
+}

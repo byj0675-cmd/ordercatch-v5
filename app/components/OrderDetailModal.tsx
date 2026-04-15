@@ -2,6 +2,8 @@
 
 import { Order, STATUS_CONFIG, SOURCE_CONFIG } from "../lib/mockData";
 import { showToast } from "./Toast";
+import ImageLightbox from "./ImageLightbox";
+import { useState } from "react";
 
 interface OrderDetailModalProps {
   order: Order;
@@ -10,11 +12,14 @@ interface OrderDetailModalProps {
   onDelete?: (orderId: string) => void;
 }
 
-const STATUSES: Order["status"][] = ["입금대기", "제작중", "픽업예정", "픽업완료", "취소됨"];
+const STATUSES: Order["status"][] = ["신규주문", "제작중", "픽업대기", "완료", "취소"];
 
 export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete }: OrderDetailModalProps) {
   const cfg = STATUS_CONFIG[order.status];
   const src = SOURCE_CONFIG[order.source];
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const imageUrl = order.options.imageUrl;
 
   const pickupDate = new Date(order.pickupDate);
   const isValidDate = !isNaN(pickupDate.getTime());
@@ -34,7 +39,9 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     if (onStatusChange) onStatusChange(order.id, newStatus);
   };
 
-  const optionEntries = Object.entries(order.options).filter(([, v]) => v !== undefined && v !== false && v !== "" && !(Array.isArray(v) && v.length === 0));
+  const optionEntries = Object.entries(order.options).filter(
+    ([key, v]) => key !== "imageUrl" && v !== undefined && v !== false && v !== "" && !(Array.isArray(v) && v.length === 0)
+  );
 
   const optionLabels: Record<string, string> = {
     count: "수량",
@@ -53,8 +60,9 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
+    <>
+      <div className="modal-backdrop" onClick={onClose}>
+        <div
         className="animate-scaleIn"
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -124,6 +132,48 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
 
         {/* Body */}
         <div style={{ padding: "20px 28px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* 이미지 썸네일 (있을 때만) */}
+          {imageUrl && (
+            <div
+              onClick={() => setLightboxOpen(true)}
+              style={{
+                borderRadius: 14,
+                overflow: "hidden",
+                cursor: "zoom-in",
+                position: "relative",
+                border: "1px solid rgba(0,0,0,0.08)",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+              }}
+            >
+              <img
+                src={imageUrl}
+                alt="참고 이미지"
+                style={{
+                  width: "100%",
+                  maxHeight: 220,
+                  objectFit: "cover",
+                  display: "block",
+                }}
+              />
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  background: "linear-gradient(transparent, rgba(0,0,0,0.45))",
+                  padding: "20px 14px 10px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.85)", fontWeight: 600 }}>
+                  🔍 클릭하여 원본 크기로 보기
+                </span>
+              </div>
+            </div>
+          )}
           {/* Amount + Date */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <MetaCard
@@ -269,6 +319,16 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
         </div>
       </div>
     </div>
+
+    {/* Lightbox */}
+      {lightboxOpen && imageUrl && (
+        <ImageLightbox
+          src={imageUrl}
+          alt={`${order.customerName} 참고 이미지`}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+    </>
   );
 }
 

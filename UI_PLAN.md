@@ -1,64 +1,177 @@
-# 대시보드 UI 전면 고도화 계획서 V2
-> 목표: 토스/캐시노트 수준의 2026년형 실무 최적화 B2B SaaS UI
+# OrderCatch 대시보드 실무형 UI/UX 전면 개편 계획서
+
+> 목표: 디저트/네일 공방 사장님들의 **실제 업무 프로세스**에 최적화된 대시보드로 전면 리팩토링
 
 ---
 
-## 디자인 토큰 (공통 기준)
+## 영향 범위 요약
 
-| 항목 | 값 |
-|------|-----|
-| 배경 | `#F3F4F6` (쿨그레이) |
-| 카드 | `#FFFFFF` + `box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05)` |
-| 모서리 | `border-radius: 16px` |
-| 핵심 텍스트 | `#111827`, Bold, 24px+ |
-| 보조 텍스트 | `#6B7280`, Regular, 13px |
-| 형광펜 강조 | `background: #FFFBEB`, `border-left: 3px solid #F59E0B` |
-| 트랜지션 | `transition: all 0.2s ease` |
-| 호버 효과 | `transform: translateY(-2px)` |
+| 변경 유형 | 파일 | 설명 |
+|----------|------|------|
+| MODIFY | `app/lib/mockData.ts` | 상태값 타입 전면 변경 |
+| MODIFY | `app/dashboard/page.tsx` | 벤토 그리드, 필터, 중복 체크, 프린트 상태 연동 |
+| MODIFY | `app/components/CalendarView.tsx` | 날짜 클릭 → 사이드 드로어 / 바텀시트 |
+| MODIFY | `app/components/OrderDetailModal.tsx` | 이미지 썸네일 표시 + Lightbox |
+| MODIFY | `app/components/ManualOrderSheet.tsx` | 이미지 업로드/붙여넣기 + 중복 체크 팝업 |
+| MODIFY | `app/components/PasteBoard.tsx` | 상태값 참조 업데이트 |
+| NEW | `app/components/DayDrawer.tsx` | 날짜 클릭 시 사이드 드로어/바텀시트 + 프린트 |
+| NEW | `app/components/DuplicateCheckModal.tsx` | 중복 고객 감지 팝업 |
+| NEW | `app/components/ImageLightbox.tsx` | 이미지 원본 크기 팝업 |
+| MODIFY | `app/api/orders/register/route.ts` | 기본 상태값 `신규주문` 으로 변경 |
+| MODIFY | `app/globals.css` | 드로어 애니메이션, 프린트 CSS 업데이트 |
 
 ---
 
-## 체크리스트
+## Phase 1 — 주문 상태(Status) 로직 전면 변경
 
-### Phase 1 — 벤토 그리드 상단 요약 카드 ✅
-- [x] 기존 6개 요약 카드 → 벤토 그리드 레이아웃으로 재배치
-- [x] **오늘 주문 건수** 블록: 대형 숫자(text-4xl, bold) + 완료/대기 카운트
-- [x] **오늘 총매출** 블록: ₩ 금액 대형 표시 + 전체 주문 수
-- [x] **상태별 미니 카운터** 블록: 입금대기 / 제작중 / 픽업완료 / 취소됨
-- [x] 모바일에서는 2열 그리드로 자동 정렬
+기존: `입금대기 → 제작중 → 픽업예정 → 픽업완료 → 취소됨`
+신규: `신규주문 → 제작중 → 픽업대기 → 완료 → 취소`
 
-### Phase 2 — 주문 카드 글랜서블 재설계 ✅
-- [x] 카드 배경 `#FFFFFF`, 그림자, `border-radius: 16px` 적용
-- [x] **고객명 + 픽업시간** → Bold 대형 폰트(1순위 정보)
-- [x] **상품명** → 2순위, 중간 크기
-- [x] **레터링 문구 / 특이 요청** → 형광펜 효과 박스(`#FFFBEB` + 좌측 amber 라인)
-- [x] 옵션 상세(`options` 객체) → 작은 회색 태그 칩(chip)으로 표시
-- [x] 상태 뱃지 색상 정교화 (입금대기=amber, 제작중=blue, 픽업완료=green)
-- [x] 카드 호버 시 `translateY(-2px)` + 그림자 강화
+> ⚠️ **DB 마이그레이션 필요**: 기존 Supabase `orders` 테이블에 저장된 status 값을 새 값으로 UPDATE하는 SQL 1회 실행 필요
 
-### Phase 3 — 바텀 시트 모달 ✅
-- [x] 기존 수기주문 모달 → 하단에서 슬라이드업 바텀 시트로 교체
-- [x] 딤 배경 클릭 시 닫기
-- [x] 모바일 풀스크린, 데스크탑 최대 높이 80vh
-- [x] 입력 완료 버튼 → 스낵바 Toast("주문이 등록되었습니다 ✅")
+### 체크리스트
 
-### Phase 4 — 플로팅 액션 버튼 (FAB) ✅
-- [x] 우측 하단 고정 FAB: `＋ 주문 등록`
-- [x] FAB 클릭 시 `🖨️ 프린트` + `✏️ 수기 주문 등록` 스피드 다이얼 펼쳐짐
-- [x] 스크롤해도 항상 화면에 고정
+- [ ] `app/lib/mockData.ts` — `OrderStatus` 타입 변경
+  ```
+  "신규주문" | "제작중" | "픽업대기" | "완료" | "취소"
+  ```
+- [ ] `app/lib/mockData.ts` — `STATUS_CONFIG` 색상 재정의
+  - 신규주문: 초록 계열 (입금 완료 = 확정된 주문)
+  - 제작중: 파란 계열 (기존 유지)
+  - 픽업대기: 보라/앰버 계열 (눈에 띄게)
+  - 완료: 회색 계열 (아카이브)
+  - 취소: 빨강 계열 (기존 유지)
+- [ ] `app/dashboard/page.tsx` — 벤토 그리드 상단 요약 카드 재배치
+  - **대형 카드 좌측**: "신규 주문(입금완료)" 건수 → 가장 눈에 띄게
+  - **대형 카드 우측**: "픽업 대기" 건수 → 오늘 해야 할 일
+  - **소형 4개**: 제작중 / 완료 / 취소 / 오늘 매출
+- [ ] `app/dashboard/page.tsx` — `SUMMARY_CARDS`, `FilterKey`, `summaryData` 전체 업데이트
+- [ ] `app/components/ManualOrderSheet.tsx` — 상태 선택칩 업데이트
+- [ ] `app/components/OrderDetailModal.tsx` — STATUSES 배열 업데이트
+- [ ] `app/api/orders/register/route.ts` — 기본 삽입 status `'신규주문'`으로 변경
+- [ ] Supabase SQL 마이그레이션 스크립트 작성 (`sql/migrate_status.sql`)
 
-### Phase 5 — 프린트 뷰 ✅
-- [x] `🖨️ 오늘 주문 출력` 기능
-- [x] `@media print` CSS: 버튼/헤더 숨기고 테이블만 출력
-- [x] 출력 레이아웃: 번호 / 고객명 / 상품 / 픽업시간 / 레터링 문구 / 상태
-- [x] A4 최적화
+---
 
-### Phase 6 — 헤더 & 전체 레이아웃
-- [ ] 스티키 헤더: 날짜 네비게이터(← 어제 / 오늘 / 내일 →) 항상 표시
-- [ ] 전체 배경 `#F3F4F6` 적용
-- [ ] 페이지 최대 너비 1200px 센터 정렬
+## Phase 2 — 캘린더 인터랙션 고도화 (날짜 클릭 → 드로어)
+
+### 동작 시나리오
+1. 데스크톱: 날짜 셀 클릭 → **오른쪽에서 슬라이드-인 사이드 드로어** (width: 420px)
+2. 모바일: 날짜 셀 클릭 → **하단에서 올라오는 바텀시트** (max-height: 90vh)
+3. 드로어/시트 안에 해당 날짜의 주문이 **시간순 정렬**된 상세 카드로 표시
+4. 드로어 상단 우측에 **🖨️ (선택한 날짜) 주문서 출력** 버튼
+5. 닫기: 바깥 영역 클릭 또는 ✕ 버튼
+
+### 체크리스트
+
+- [ ] **[NEW]** `app/components/DayDrawer.tsx` 생성
+  - Props: `date: Date`, `orders: Order[]`, `onClose`, `onOrderClick`, `onStatusChange`, `onDelete`
+  - 데스크톱: 우측 드로어 (position: fixed, right: 0, width: 420px)
+  - 모바일: 바텀시트 (position: fixed, bottom: 0, full-width)
+  - 반응형 전환: CSS `@media (min-width: 768px)` 기반
+  - 헤더: "{M}월 {D}일 {요일}" + 주문 건수 + 총 매출
+  - 본문: 시간순 정렬된 주문 카드 목록 (OrderCard 재사용)
+  - 각 카드 클릭 시 `onOrderClick` 호출 (기존 상세 모달 연결)
+  - 🖨️ 프린트 버튼
+- [ ] `app/components/CalendarView.tsx` — `DesktopCalendar` 수정
+  - 날짜 셀 전체를 클릭 가능하게 변경 (기존: 개별 주문 버튼만 클릭)
+  - 클릭 시 `onDayClick(date)` 콜백 호출
+  - 선택된 날짜 셀에 하이라이트 시각 효과 추가
+- [ ] `app/components/CalendarView.tsx` — `MobileView` 수정
+  - 날짜 섹션 헤더 클릭 시 `onDayClick(date)` 호출
+- [ ] `app/components/CalendarView.tsx` — props에 `onDayClick` 추가
+- [ ] `app/dashboard/page.tsx` — DayDrawer 상태 관리
+  - `selectedDay: Date | null` state 추가
+  - CalendarView에 `onDayClick` 핸들러 연결
+  - DayDrawer 렌더링 조건부 추가
+- [ ] `app/globals.css` — 드로어 슬라이드 애니메이션 추가
+  - `@keyframes slideInRight` (데스크톱)
+  - `@keyframes slideUpDrawer` (모바일)
+
+### Phase 2-B — 선택 날짜 맞춤형 프린트
+
+- [ ] `DayDrawer.tsx` 내부에 프린트 전용 섹션 (`#day-print-section`) 추가
+  - 선택된 날짜의 주문만 테이블 형태로 렌더링
+  - 컬럼: 번호 / 픽업시간 / 고객명 / 상품 / 레터링·요청 / 금액 / 상태 / 사진유무
+- [ ] `app/globals.css` — `@media print` 규칙 업데이트
+  - 기존 `#print-section` 외에 `#day-print-section`도 지원
+  - 드로어가 열려 있을 때 프린트 → 드로어 내 프린트 섹션만 출력
+  - 드로어 없을 때 프린트 → 기존 오늘 주문 출력 유지
+- [ ] `DayDrawer.tsx` — 🖨️ 버튼 클릭 시 `window.print()` 호출
+
+---
+
+## Phase 3 — 이미지 업로드 + Lightbox
+
+### Supabase Storage 설정
+- [ ] Supabase Dashboard에서 `order_images` 버킷 생성 (Public 접근 허용)
+- [ ] RLS 정책: `authenticated` 사용자만 upload 가능, 읽기는 Public
+
+### 체크리스트
+
+- [ ] `app/lib/mockData.ts` — `Order.options`에 `imageUrl?: string` 필드 추가
+- [ ] `app/components/ManualOrderSheet.tsx` — 이미지 업로드 UI 추가
+  - 드래그앤드롭 / 파일 선택 / **클립보드 붙여넣기(Ctrl+V)** 지원
+  - 미리보기 썸네일 표시
+  - 저장 시 Supabase Storage에 업로드 후 URL을 `options.imageUrl`에 저장
+  - 파일명: `{storeId}/{orderId}_{timestamp}.{ext}` 형식
+- [ ] `app/components/PasteBoard.tsx` — 이미지 관련 옵션 표시 (imageUrl이 있으면 썸네일)
+- [ ] `app/components/OrderDetailModal.tsx` — 이미지 썸네일 표시
+  - `options.imageUrl`이 있으면 카드 상단에 큰 썸네일 표시
+  - 클릭 시 `ImageLightbox` 팝업
+- [ ] **[NEW]** `app/components/ImageLightbox.tsx` 생성
+  - 전체화면 오버레이 + 이미지 원본 크기 표시
+  - 배경 클릭 / ESC / ✕ 버튼으로 닫기
+- [ ] `DayDrawer.tsx` — 날짜별 주문 카드에 이미지 썸네일 표시 (있는 경우)
+
+---
+
+## Phase 4 — 스마트 중복 체크
+
+### 동작 시나리오
+1. 수기 주문 등록(ManualOrderSheet)에서 고객명 + 연락처 입력 후 포커스 벗어날 때
+2. 기존 DB에서 동일 이름+번호 주문 검색
+3. 일치하는 주문이 있으면 → **팝업 등장**
+4. 버튼 A: `[새로운 주문으로 추가]` → 신규 INSERT (기존 유지)
+5. 버튼 B: `[기존 주문 수정하기]` → 기존 주문을 로드하여 폼에 채워넣고 UPDATE 모드로 전환
+
+### 체크리스트
+
+- [ ] **[NEW]** `app/components/DuplicateCheckModal.tsx` 생성
+  - Props: `existingOrders: Order[]`, `onNewOrder`, `onEditOrder(order)`, `onClose`
+  - UI: "🔔 이미 등록된 고객입니다! 어떻게 처리할까요?" 헤더
+  - 기존 주문 정보 미리보기 카드 (상품명, 픽업일, 상태 등)
+  - 버튼 A: 새로운 주문으로 추가 (초록)
+  - 버튼 B: 기존 주문 수정하기 (파랑)
+- [ ] `app/components/ManualOrderSheet.tsx` — 중복 체크 로직 추가
+  - 고객명 + 연락처 입력 시 `onBlur`에서 Supabase 조회
+  - 일치 주문 발견 시 `DuplicateCheckModal` 표시
+  - "기존 주문 수정" 선택 시: 폼에 기존 값 auto-fill + `isUpdateMode` state
+  - 저장 시 `isUpdateMode`면 `.update()`, 아니면 `.insert()`
+- [ ] `app/components/PasteBoard.tsx` — AI 파싱 결과 저장 전 동일한 중복 체크 적용
+
+---
+
+## Supabase 마이그레이션 SQL
+
+```sql
+-- sql/migrate_status.sql
+-- 기존 상태값을 새 프로세스로 변환
+UPDATE orders SET status = '신규주문' WHERE status = '입금대기';
+UPDATE orders SET status = '픽업대기' WHERE status = '픽업예정';
+UPDATE orders SET status = '완료' WHERE status = '픽업완료';
+UPDATE orders SET status = '취소' WHERE status = '취소됨';
+-- '제작중'은 그대로 유지
+```
+
+> ⚠️ 이 SQL은 코드 배포 **직전 또는 동시에** 실행해야 합니다.
 
 ---
 
 ## 작업 순서
-Phase 1 → 2 → 3 → 4 → 5 → 6 순서로 진행. 각 Phase 완료 시 체크.
+
+```
+Phase 1 (상태 로직) → Phase 2 (캘린더+드로어+프린트) → Phase 3 (이미지) → Phase 4 (중복 체크)
+```
+
+각 Phase 완료 시마다 `npm run build`로 빌드 검증 후 커밋.

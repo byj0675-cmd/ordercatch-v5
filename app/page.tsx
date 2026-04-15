@@ -4,6 +4,7 @@ import { signInWithKakao, supabase } from "@/utils/supabase/client";
 import { showToast } from "@/app/components/Toast";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useStoreProvider } from "./context/StoreContext";
 
 // ── Scroll-reveal hook ──────────────────────────────────────────────────────
 function useScrollReveal() {
@@ -152,6 +153,8 @@ function LandingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [scrolled, setScrolled] = useState(false);
+  const { loginAsMockUser } = useStoreProvider();
+  const [isLocal, setIsLocal] = useState(false);
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -166,6 +169,7 @@ function LandingContent() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
+    setIsLocal(window.location.hostname === "localhost");
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -257,6 +261,25 @@ function LandingContent() {
                 <span style={{ background: "#000", color: COLOR.accent, width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 12 }}>K</span>
                 카카오로 무료 시작하기
               </button>
+
+              {isLocal && (
+                <button
+                  onClick={() => {
+                    loginAsMockUser();
+                    router.push("/dashboard");
+                  }}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 10,
+                    background: "#F3F4F6", color: "#374151", border: "1px solid #D1D5DB",
+                    borderRadius: 14, padding: "15px 32px", fontSize: 16, fontWeight: 700,
+                    cursor: "pointer", transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#E5E7EB")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#F3F4F6")}
+                >
+                  🛠️ 개발자 모드로 시작 (Local Only)
+                </button>
+              )}
             </div>
             <div style={{ fontSize: 12, color: "#aaa", marginTop: 12 }}>신용카드 불필요 · 1개월 무료 체험</div>
           </div>

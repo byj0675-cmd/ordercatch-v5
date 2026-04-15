@@ -15,6 +15,7 @@ import SettingsModal from "../components/SettingsModal";
 import PasteBoard from "../components/PasteBoard";
 import ManualOrderSheet from "../components/ManualOrderSheet";
 import FAB from "../components/FAB";
+import DayDrawer from "../components/DayDrawer";
 import { useStoreProvider } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
@@ -24,11 +25,11 @@ type ViewMode = "calendar" | "list";
 
 const SUMMARY_CARDS = [
   { key: "all", label: "전체 주문", icon: "📋", color: "#007aff", bg: "rgba(0,122,255,0.08)" },
-  { key: "입금대기", label: "입금 대기", icon: "⏳", color: "#ff9500", bg: "rgba(255,149,0,0.08)" },
-  { key: "제작중", label: "제작 중", icon: "🔨", color: "#007aff", bg: "rgba(0,122,255,0.08)" },
-  { key: "픽업예정", label: "오늘 픽업", icon: "🚀", color: "#af52de", bg: "rgba(175,82,222,0.08)" },
-  { key: "픽업완료", label: "픽업 완료", icon: "✅", color: "#34c759", bg: "rgba(52,199,89,0.08)" },
-  { key: "취소됨", label: "취소", icon: "❌", color: "#ff3b30", bg: "rgba(255,59,48,0.08)" },
+  { key: "신규주문", label: "신규 주문", icon: "✨", color: "#059669", bg: "rgba(5,150,105,0.08)" },
+  { key: "제작중", label: "제작 중", icon: "🔨", color: "#2563eb", bg: "rgba(37,99,235,0.08)" },
+  { key: "픽업대기", label: "픽업 대기", icon: "🚀", color: "#d97706", bg: "rgba(217,119,6,0.08)" },
+  { key: "완료", label: "완료", icon: "✅", color: "#6b7280", bg: "rgba(107,114,128,0.08)" },
+  { key: "취소", label: "취소", icon: "❌", color: "#dc2626", bg: "rgba(220,38,38,0.08)" },
 ] as const;
 
 type FilterKey = (typeof SUMMARY_CARDS)[number]["key"];
@@ -43,6 +44,7 @@ export default function Dashboard() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
   const [isFetching, setIsFetching] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const { profile, loading, updateStoreProfile } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -140,41 +142,24 @@ export default function Dashboard() {
     }
     
     if (activeFilter !== "all") {
-      if (activeFilter === "픽업예정") {
-        const today = new Date();
-        result = result.filter((o) => {
-          const d = new Date(o.pickupDate);
-          return (
-            o.status === "픽업예정" &&
-            d.getFullYear() === today.getFullYear() &&
-            d.getMonth() === today.getMonth() &&
-            d.getDate() === today.getDate()
-          );
-        });
-      } else {
-        result = result.filter((o) => o.status === activeFilter);
-      }
+      result = result.filter((o) => o.status === activeFilter);
     }
     return result;
   }, [orders, activeFilter, selectedStoreId, mounted]);
 
   // Summary counts (Guarded for hydration)
   const summaryData = useMemo(() => {
-    const emptyStats = { all: 0, 입금대기: 0, 제작중: 0, 픽업예정: 0, 픽업완료: 0, 취소됨: 0 };
+    const emptyStats = { all: 0, 신규주문: 0, 제작중: 0, 픽업대기: 0, 완료: 0, 취소: 0 };
     if (!mounted) return emptyStats;
 
     const storeOrders = selectedStoreId === "all" ? orders : orders.filter((o) => o.storeId === selectedStoreId);
-    const today = new Date();
     return {
       all: storeOrders.length,
-      입금대기: storeOrders.filter((o) => o.status === "입금대기").length,
+      신규주문: storeOrders.filter((o) => o.status === "신규주문").length,
       제작중: storeOrders.filter((o) => o.status === "제작중").length,
-      픽업예정: storeOrders.filter((o) => {
-        const d = new Date(o.pickupDate);
-        return o.status === "픽업예정" && d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-      }).length,
-      픽업완료: storeOrders.filter((o) => o.status === "픽업완료").length,
-      취소됨: storeOrders.filter((o) => o.status === "취소됨").length,
+      픽업대기: storeOrders.filter((o) => o.status === "픽업대기").length,
+      완료: storeOrders.filter((o) => o.status === "완료").length,
+      취소: storeOrders.filter((o) => o.status === "취소").length,
     };
   }, [orders, selectedStoreId, mounted]);
 
@@ -201,7 +186,7 @@ export default function Dashboard() {
   const todayStats = useMemo(() => ({
     count: todayOrders.length,
     revenue: todayOrders.reduce((s, o) => s + o.amount, 0),
-    completed: todayOrders.filter((o) => o.status === "픽업완료").length,
+    completed: todayOrders.filter((o) => o.status === "완료").length,
   }), [todayOrders]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
@@ -340,35 +325,32 @@ export default function Dashboard() {
 
           {/* ── 벤토 그리드 ── */}
           <div className="bento-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-
-            {/* 대형 카드 1 — 오늘 픽업 */}
+            {/* 대형 카드 1 — 신규 주문 */}
             <button
-              onClick={() => setActiveFilter("픽업예정")}
-              style={{ gridColumn: "span 2", background: activeFilter === "픽업예정" ? "linear-gradient(135deg, #6366f1, #8b5cf6)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "픽업예정" ? "translateY(-2px)" : "none" }}
+              onClick={() => setActiveFilter("신규주문")}
+              style={{ gridColumn: "span 2", background: activeFilter === "신규주문" ? "linear-gradient(135deg, #10b981, #059669)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "신규주문" ? "translateY(-2px)" : "none" }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "픽업예정" ? "rgba(255,255,255,0.7)" : "#6B7280", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>오늘 픽업</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "픽업예정" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{todayStats.count}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
-              <div style={{ fontSize: 13, color: activeFilter === "픽업예정" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>완료 {todayStats.completed}건 · 대기 {todayStats.count - todayStats.completed}건</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "신규주문" ? "rgba(255,255,255,0.7)" : "#059669", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>✨ 신규 주문 (입금완료)</div>
+              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "신규주문" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{summaryData["신규주문"]}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
+              <div style={{ fontSize: 13, color: activeFilter === "신규주문" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>확정된 새로운 주문입니다</div>
             </button>
 
-            {/* 대형 카드 2 — 오늘 매출 */}
+            {/* 대형 카드 2 — 픽업 대기 */}
             <button
-              onClick={() => setActiveFilter("all")}
-              style={{ gridColumn: "span 2", background: activeFilter === "all" ? "linear-gradient(135deg, #0ea5e9, #6366f1)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "all" ? "translateY(-2px)" : "none" }}
+              onClick={() => setActiveFilter("픽업대기")}
+              style={{ gridColumn: "span 2", background: activeFilter === "픽업대기" ? "linear-gradient(135deg, #f59e0b, #d97706)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "픽업대기" ? "translateY(-2px)" : "none" }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "all" ? "rgba(255,255,255,0.7)" : "#6B7280", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>오늘 매출</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: activeFilter === "all" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>
-                {todayStats.revenue > 0 ? `₩${todayStats.revenue.toLocaleString()}` : "-"}
-              </div>
-              <div style={{ fontSize: 13, color: activeFilter === "all" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>전체 {summaryData.all}건 · 총 ₩{totalRevenue.toLocaleString()}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "픽업대기" ? "rgba(255,255,255,0.7)" : "#d97706", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>🚀 픽업 대기</div>
+              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "픽업대기" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{summaryData["픽업대기"]}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
+              <div style={{ fontSize: 13, color: activeFilter === "픽업대기" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>제작 완료되어 픽업을 기다립니다</div>
             </button>
 
-            {/* 소형 카드 4개 */}
+            {/* 소형 카드 4개: 제작중 / 완료 / 취소 / 매출 */}
             {[
-              { key: "입금대기" as FilterKey, label: "입금 대기", icon: "💳", color: "#f59e0b", activeBg: "#fef3c7" },
-              { key: "제작중" as FilterKey, label: "제작 중", icon: "🔨", color: "#3b82f6", activeBg: "#dbeafe" },
-              { key: "픽업완료" as FilterKey, label: "픽업 완료", icon: "✅", color: "#10b981", activeBg: "#d1fae5" },
-              { key: "취소됨" as FilterKey, label: "취소", icon: "✕", color: "#ef4444", activeBg: "#fee2e2" },
+              { key: "제작중" as FilterKey, label: "제작 중", icon: "🔨", color: "#2563eb", activeBg: "#dbeafe" },
+              { key: "완료" as FilterKey, label: "완료", icon: "✅", color: "#6b7280", activeBg: "#f3f4f6" },
+              { key: "취소" as FilterKey, label: "취소", icon: "✕", color: "#dc2626", activeBg: "#fee2e2" },
+              { key: "all" as FilterKey, label: "전체/매출", icon: "💰", color: "#0ea5e9", activeBg: "#e0f2fe", isRevenue: true },
             ].map((card) => {
               const isActive = activeFilter === card.key;
               return (
@@ -378,7 +360,9 @@ export default function Dashboard() {
                   style={{ background: isActive ? card.activeBg : "#fff", borderRadius: 16, padding: "16px 18px", border: isActive ? `1.5px solid ${card.color}40` : "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: isActive ? "translateY(-2px)" : "none" }}
                 >
                   <div style={{ fontSize: 20, marginBottom: 8 }}>{card.icon}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: isActive ? card.color : "#111827", lineHeight: 1, marginBottom: 4 }}>{summaryData[card.key]}</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: isActive ? card.color : "#111827", lineHeight: 1, marginBottom: 4 }}>
+                    {card.isRevenue ? (todayStats.revenue > 0 ? `${(Math.floor(todayStats.revenue / 10000))}만` : "0") : summaryData[card.key]}
+                  </div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? card.color : "#6B7280" }}>{card.label}</div>
                 </button>
               );
@@ -408,7 +392,7 @@ export default function Dashboard() {
 
           <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
             {viewMode === "calendar" ? (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} />
+              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} />
             ) : (
               filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
             )}
@@ -427,6 +411,28 @@ export default function Dashboard() {
       )}
 
       <FAB onAddOrder={() => setShowManualSheet(true)} onPrint={handlePrint} />
+
+      {/* ── Day Drawer ── */}
+      {selectedDay && (
+        <DayDrawer
+          date={selectedDay}
+          orders={orders.filter((o) => {
+            const d = new Date(o.pickupDate);
+            return (
+              d.getFullYear() === selectedDay.getFullYear() &&
+              d.getMonth() === selectedDay.getMonth() &&
+              d.getDate() === selectedDay.getDate()
+            );
+          })}
+          onClose={() => setSelectedDay(null)}
+          onOrderClick={(order) => {
+            setSelectedOrder(order);
+            setSelectedDay(null);
+          }}
+          onStatusChange={handleStatusChange}
+          onDelete={handleDeleteOrder}
+        />
+      )}
 
       {/* ── 프린트 전용 섹션 (화면에는 숨김, @media print 에서만 표시) ── */}
       <div id="print-section">
@@ -534,7 +540,7 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
           </thead>
           <tbody>
             {orders.map((order, idx) => {
-              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["입금대기"];
+              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
               const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"];
               return (
                 <tr key={order.id} className="animate-fadeIn" style={{ borderBottom: idx < orders.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", transition: "background 0.12s", animationDelay: `${idx * 0.04}s` }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.025)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
@@ -559,7 +565,7 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
       </div>
       <div className="list-card-wrap">
         {orders.map((order, idx) => {
-          const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["입금대기"];
+          const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
           const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"];
           return (
             <div key={order.id} className="order-card animate-fadeIn" style={{ animationDelay: `${idx * 0.05}s` }} onClick={() => onOrderClick(order)}>
@@ -637,11 +643,11 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
   }
 
   const msgs: Record<Exclude<FilterKey, "all">, { emoji: string; title: string; sub: string }> = {
-    입금대기: { emoji: "⏳", title: "입금 대기 주문 없음", sub: "모든 주문의 입금이 완료되었습니다 🎉" },
-    제작중: { emoji: "🔨", title: "제작 중인 주문 없음", sub: "현재 제작 중인 주문이 없습니다." },
-    픽업예정: { emoji: "🚀", title: "오늘 픽업 예정 없음", sub: "오늘 픽업 예정인 주문이 없습니다." },
-    픽업완료: { emoji: "✅", title: "픽업 완료 내역 없음", sub: "아직 완료된 주문이 없습니다." },
-    취소됨: { emoji: "❌", title: "취소 내역 없음", sub: "취소된 주문이 없습니다. 좋은 신호예요! 👍" },
+    신규주문: { emoji: "✨", title: "신규 주문 없음", sub: "아직 새로 들어온 주문이 없습니다." },
+    제작중:   { emoji: "🔨", title: "제작 중인 주문 없음", sub: "현재 제작 중인 주문이 없습니다." },
+    픽업대기: { emoji: "🚀", title: "픽업 대기 주문 없음", sub: "픽업 대기 중인 주문이 없습니다." },
+    완료:     { emoji: "✅", title: "완료 내역 없음", sub: "아직 완료된 주문이 없습니다." },
+    취소:     { emoji: "❌", title: "취소 내역 없음", sub: "취소된 주문이 없습니다. 좋은 신호예요! 👍" },
   };
   const m = msgs[filter as Exclude<FilterKey, "all">];
   return (

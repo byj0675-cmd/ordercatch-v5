@@ -1,4 +1,4 @@
-export type OrderStatus = "입금대기" | "제작중" | "픽업완료" | "픽업예정" | "취소됨";
+export type OrderStatus = "신규주문" | "제작중" | "픽업대기" | "완료" | "취소";
 
 export interface Order {
   id: string;
@@ -25,6 +25,7 @@ export interface Order {
     custom?: string;
     couponUsed?: string;
     paymentMethod?: string;
+    imageUrl?: string;
   };
   source: "kakao" | "instagram" | "manual" | "link";
   createdAt: string;
@@ -45,11 +46,11 @@ export const STORES: Store[] = [];
 export const MOCK_ORDERS: Order[] = [];
 
 export const STATUS_CONFIG: Record<OrderStatus, { color: string; bg: string; label: string; dot: string }> = {
-  입금대기: { color: "#ff9500", bg: "rgba(255,149,0,0.12)", label: "입금대기", dot: "#ff9500" },
-  제작중: { color: "#007aff", bg: "rgba(0,122,255,0.1)", label: "제작중", dot: "#007aff" },
-  픽업예정: { color: "#af52de", bg: "rgba(175,82,222,0.12)", label: "픽업예정", dot: "#af52de" },
-  픽업완료: { color: "#34c759", bg: "rgba(52,199,89,0.12)", label: "픽업완료", dot: "#34c759" },
-  취소됨: { color: "#ff3b30", bg: "rgba(255,59,48,0.12)", label: "취소됨", dot: "#ff3b30" },
+  신규주문: { color: "#059669", bg: "rgba(5,150,105,0.10)", label: "신규주문", dot: "#10b981" },
+  제작중:   { color: "#2563eb", bg: "rgba(37,99,235,0.10)", label: "제작중",   dot: "#3b82f6" },
+  픽업대기: { color: "#d97706", bg: "rgba(217,119,6,0.10)", label: "픽업대기", dot: "#f59e0b" },
+  완료:     { color: "#6b7280", bg: "rgba(107,114,128,0.10)", label: "완료",    dot: "#9ca3af" },
+  취소:     { color: "#dc2626", bg: "rgba(220,38,38,0.10)", label: "취소",     dot: "#ef4444" },
 };
 
 export const SOURCE_CONFIG = {
