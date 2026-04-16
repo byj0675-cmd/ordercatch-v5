@@ -96,7 +96,7 @@ export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | 
 `;
 
   try {
-    const targetModel = "gemini-2.5-flash-lite";
+    const targetModel = "gemini-3.1-flash-lite-preview";
     console.log(`[Gemini AI] Attempting with model: ${targetModel}`);
     return await tryGenerate(targetModel, systemPrompt, text);
   } catch (error: any) {
