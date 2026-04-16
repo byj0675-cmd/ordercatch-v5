@@ -540,8 +540,8 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
           </thead>
           <tbody>
             {orders.map((order, idx) => {
-              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
-              const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"];
+              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+              const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
               return (
                 <tr key={order.id} className="animate-fadeIn" style={{ borderBottom: idx < orders.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", transition: "background 0.12s", animationDelay: `${idx * 0.04}s` }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.025)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
                   <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{formatPickup(order.pickupDate)}</td>
@@ -554,8 +554,8 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
                   </td>
                   <td style={{ padding: "13px 16px", fontSize: 13, color: "var(--text-secondary)", maxWidth: 200 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{order.productName}</div></td>
                   <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{order.amount.toLocaleString()}원</td>
-                  <td style={{ padding: "13px 16px" }}><span className="status-badge" style={{ background: cfg.bg, color: cfg.color }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />{cfg.label}</span></td>
-                  <td style={{ padding: "13px 16px" }}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: src.color + "22", color: src.color === "#FEE500" ? "#8B6914" : src.color, whiteSpace: "nowrap" }}>{src.emoji} {src.label}</span></td>
+                  <td style={{ padding: "13px 16px" }}><span className="status-badge" style={{ background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280" }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg?.dot || "#9ca3af", display: "inline-block" }} />{cfg?.label || "상태알수없음"}</span></td>
+                  <td style={{ padding: "13px 16px" }}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: (src?.color || "#e5e7eb") + "22", color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280"), whiteSpace: "nowrap" }}>{src?.emoji || "❓"} {src?.label || "알수없음"}</span></td>
                   <td style={{ padding: "13px 16px" }}><button id={`order-detail-${order.id}`} className="btn" onClick={() => onOrderClick(order)} style={{ background: "rgba(0,0,0,0.06)", color: "var(--text-primary)", fontSize: 12, padding: "5px 12px", borderRadius: 8 }}>상세보기</button></td>
                 </tr>
               );
@@ -565,14 +565,14 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
       </div>
       <div className="list-card-wrap">
         {orders.map((order, idx) => {
-          const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
-          const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"];
+          const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+          const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
           return (
             <div key={order.id} className="order-card animate-fadeIn" style={{ animationDelay: `${idx * 0.05}s` }} onClick={() => onOrderClick(order)}>
-              <div className="order-card-accent" style={{ background: cfg.dot }} />
+              <div className="order-card-accent" style={{ background: cfg?.dot || "#9ca3af" }} />
               <div className="order-card-top" style={{ paddingLeft: 8 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>📅 {formatPickup(order.pickupDate)}</span>
-                <span className="status-badge" style={{ background: cfg.bg, color: cfg.color, flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />{cfg.label}</span>
+                <span className="status-badge" style={{ background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg?.dot || "#9ca3af", display: "inline-block" }} />{cfg?.label || "알수없음"}</span>
               </div>
               <div className="order-card-middle" style={{ paddingLeft: 8 }}>
                 <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{order.customerName}</span>
@@ -582,7 +582,7 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
               <div className="order-card-bottom" style={{ paddingLeft: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>{order.amount.toLocaleString()}원</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: src.color + "22", color: src.color === "#FEE500" ? "#8B6914" : src.color }}>{src.emoji} {src.label}</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: (src?.color || "#e5e7eb") + "22", color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280") }}>{src?.emoji || "❓"} {src?.label || "알수없음"}</span>
                 </div>
                 <button id={`order-detail-mobile-${order.id}`} className="btn btn-primary" onClick={(e) => { e.stopPropagation(); onOrderClick(order); }} style={{ fontSize: 13, padding: "7px 16px", borderRadius: 9, flexShrink: 0 }}>상세보기</button>
               </div>

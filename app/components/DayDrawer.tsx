@@ -28,10 +28,10 @@ function DrawerOrderCard({
   order: Order;
   onClick: () => void;
 }) {
-  const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG["신규주문"];
-  const src = SOURCE_CONFIG[order.source] ?? SOURCE_CONFIG["manual"];
-  const highlight = order.options.memo || order.options.custom;
-  const imageUrl = order.options.imageUrl;
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+  const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
+  const highlight = order.options?.memo || order.options?.custom;
+  const imageUrl = order.options?.imageUrl;
 
   return (
     <button
@@ -71,7 +71,7 @@ function DrawerOrderCard({
           top: 0,
           bottom: 0,
           width: 4,
-          background: cfg.dot,
+          background: cfg?.dot || "#9ca3af",
           borderRadius: "4px 0 0 4px",
         }}
       />
@@ -102,12 +102,12 @@ function DrawerOrderCard({
                 fontWeight: 700,
                 padding: "3px 9px",
                 borderRadius: 20,
-                background: cfg.bg,
-                color: cfg.color,
+                background: cfg?.bg || "#f3f4f6",
+                color: cfg?.color || "#6b7280",
                 whiteSpace: "nowrap",
               }}
             >
-              {cfg.label}
+              {cfg?.label || "알수없음"}
             </span>
           </div>
         </div>
@@ -196,11 +196,11 @@ function DrawerOrderCard({
             fontWeight: 700,
             padding: "2px 7px",
             borderRadius: 5,
-            background: src.color + "22",
-            color: src.color === "#FEE500" ? "#8B6914" : src.color,
+            background: (src?.color || "#e5e7eb") + "22",
+            color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280"),
           }}
         >
-          {src.emoji} {src.label}
+          {src?.emoji || "❓"} {src?.label || "알수없음"}
         </span>
       </div>
     </button>

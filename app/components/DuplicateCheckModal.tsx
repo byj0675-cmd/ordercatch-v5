@@ -63,7 +63,7 @@ export default function DuplicateCheckModal({
 
         <div style={{ padding: "0 24px 20px", display: "flex", flexDirection: "column", gap: 12, maxHeight: "50vh", overflowY: "auto" }}>
           {existingOrders.map((order) => {
-            const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
+            const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
             const d = new Date(order.pickupDate);
             const timeStr = isNaN(d.getTime()) ? "미정" : `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 
@@ -87,13 +87,13 @@ export default function DuplicateCheckModal({
                     style={{
                       fontSize: 11,
                       fontWeight: 600,
-                      background: cfg.bg,
-                      color: cfg.color,
+                      background: cfg?.bg || "#f3f4f6",
+                      color: cfg?.color || "#6b7280",
                       padding: "2px 8px",
                       borderRadius: 12,
                     }}
                   >
-                    {cfg.label}
+                    {cfg?.label || "상태알수없음"}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: "#6B7280" }}>

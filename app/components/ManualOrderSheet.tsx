@@ -428,7 +428,7 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
           <Field label="초기 상태">
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {STATUSES.map((s) => {
-                const cfg = STATUS_CONFIG[s];
+                const cfg = STATUS_CONFIG[s] || STATUS_CONFIG["신규주문"] || {};
                 const isActive = status === s;
                 return (
                   <button
@@ -436,14 +436,14 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
                     onClick={() => setStatus(s)}
                     style={{
                       padding: "7px 16px", borderRadius: 20,
-                      border: `1.5px solid ${isActive ? cfg.color : "transparent"}`,
-                      background: isActive ? cfg.bg : "#F3F4F6",
-                      color: isActive ? cfg.color : "#6B7280",
+                      border: `1.5px solid ${isActive ? (cfg?.color || "#6b7280") : "transparent"}`,
+                      background: isActive ? (cfg?.bg || "#f3f4f6") : "#F3F4F6",
+                      color: isActive ? (cfg?.color || "#6b7280") : "#6B7280",
                       fontSize: 13, fontWeight: isActive ? 700 : 500,
                       cursor: "pointer", transition: "all 0.15s",
                     }}
                   >
-                    {cfg.label}
+                    {cfg?.label || "알수없음"}
                   </button>
                 );
               })}

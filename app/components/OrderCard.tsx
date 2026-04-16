@@ -34,8 +34,8 @@ function formatTime(iso: string) {
 }
 
 export default function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
-  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
-  const highlight = order.options.memo || order.options.custom;
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+  const highlight = order.options?.memo || order.options?.custom;
   return (
     <button
       onClick={onClick}
@@ -63,9 +63,9 @@ export default function OrderCard({ order, onClick }: { order: Order; onClick: (
         </div>
         <span style={{
           fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
-          background: cfg.bg, color: cfg.color, flexShrink: 0, whiteSpace: "nowrap",
+          background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0, whiteSpace: "nowrap",
         }}>
-          {cfg.label}
+          {cfg?.label || "상태알수없음"}
         </span>
       </div>
 

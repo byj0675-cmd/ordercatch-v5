@@ -53,7 +53,7 @@ function OptionChips({ options }: { options: Order["options"] }) {
 
 // ── 주문 카드 (모바일용) ───────────────────────────
 function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
-  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
   const highlight = order.options.memo || order.options.custom;
   return (
     <button
@@ -82,9 +82,9 @@ function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
         </div>
         <span style={{
           fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
-          background: cfg.bg, color: cfg.color, flexShrink: 0, whiteSpace: "nowrap",
+          background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0, whiteSpace: "nowrap",
         }}>
-          {cfg.label}
+          {cfg?.label || "상태알수없음"}
         </span>
       </div>
 
@@ -372,12 +372,12 @@ function DesktopCalendar({ orders, onOrderClick, onDayClick, selectedDay }: Cale
                   <div style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontSize: 13, fontWeight: isToday(day) ? 800 : 500, background: isToday(day) ? "var(--accent)" : "transparent", color: isToday(day) ? "#fff" : isSun ? "#ff3b30" : isSat ? "#007aff" : "var(--text-primary)", marginBottom: 4 }}>{day}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {dayOrders.slice(0, 3).map((order) => {
-                      const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
+                      const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
                       const d = new Date(order.pickupDate);
                       const timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
                       return (
-                        <button key={order.id} onClick={(e) => { e.stopPropagation(); onOrderClick(order); }} style={{ display: "block", width: "100%", padding: "3px 6px", borderRadius: 5, background: cfg.bg, border: "none", cursor: "pointer", textAlign: "left" }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: cfg.color, lineHeight: 1.2 }}>{timeStr} {order.customerName}</div>
+                        <button key={order.id} onClick={(e) => { e.stopPropagation(); onOrderClick(order); }} style={{ display: "block", width: "100%", padding: "3px 6px", borderRadius: 5, background: cfg?.bg || "#f3f4f6", border: "none", cursor: "pointer", textAlign: "left" }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: cfg?.color || "#6b7280", lineHeight: 1.2 }}>{timeStr} {order.customerName}</div>
                           <div style={{ fontSize: 10, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }}>{order.productName}</div>
                         </button>
                       );

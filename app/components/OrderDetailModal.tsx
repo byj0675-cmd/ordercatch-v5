@@ -15,11 +15,11 @@ interface OrderDetailModalProps {
 const STATUSES: Order["status"][] = ["신규주문", "제작중", "픽업대기", "완료", "취소"];
 
 export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete }: OrderDetailModalProps) {
-  const cfg = STATUS_CONFIG[order.status];
-  const src = SOURCE_CONFIG[order.source];
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+  const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
-  const imageUrl = order.options.imageUrl;
+  const imageUrl = order.options?.imageUrl;
 
   const pickupDate = new Date(order.pickupDate);
   const isValidDate = !isNaN(pickupDate.getTime());
@@ -82,7 +82,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
         <div
           style={{
             height: 5,
-            background: `linear-gradient(90deg, ${cfg.dot}, ${cfg.dot}88)`,
+            background: `linear-gradient(90deg, ${cfg?.dot || "#9ca3af"}, ${cfg?.dot || "#9ca3af"}88)`,
           }}
         />
 
@@ -93,10 +93,10 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <span
                   className="status-badge"
-                  style={{ background: cfg.bg, color: cfg.color }}
+                  style={{ background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280" }}
                 >
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg.dot, display: "inline-block" }} />
-                  {cfg.label}
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: cfg?.dot || "#9ca3af", display: "inline-block" }} />
+                  {cfg?.label || "알수없음"}
                 </span>
                 <span
                   style={{
@@ -104,11 +104,11 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                     fontWeight: 600,
                     padding: "2px 8px",
                     borderRadius: 6,
-                    background: src.color + "22",
-                    color: src.color === "#FEE500" ? "#8B6914" : src.color,
+                    background: (src?.color || "#e5e7eb") + "22",
+                    color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280"),
                   }}
                 >
-                  {src.emoji} {src.label}
+                  {src?.emoji || "❓"} {src?.label || "알수없음"}
                 </span>
               </div>
               <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--text-primary)", margin: 0, lineHeight: 1.3 }}>
@@ -232,7 +232,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
             <SectionTitle>상태 변경</SectionTitle>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
               {STATUSES.map((s) => {
-                const c = STATUS_CONFIG[s];
+                const c = STATUS_CONFIG[s] || STATUS_CONFIG["신규주문"] || {};
                 const isActive = order.status === s;
                 return (
                   <button
@@ -241,16 +241,16 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                     style={{
                       padding: "7px 14px",
                       borderRadius: 9,
-                      border: `1.5px solid ${isActive ? c.dot : "transparent"}`,
-                      background: isActive ? c.bg : "rgba(0,0,0,0.05)",
-                      color: isActive ? c.color : "var(--text-secondary)",
+                      border: `1.5px solid ${isActive ? (c?.dot || "#9ca3af") : "transparent"}`,
+                      background: isActive ? (c?.bg || "#f3f4f6") : "rgba(0,0,0,0.05)",
+                      color: isActive ? (c?.color || "#111") : "var(--text-secondary)",
                       fontSize: 13,
                       fontWeight: isActive ? 700 : 500,
                       cursor: isActive ? "default" : "pointer",
                       transition: "all 0.15s",
                     }}
                   >
-                    {c.label}
+                    {c?.label || "알수없음"}
                   </button>
                 );
               })}
