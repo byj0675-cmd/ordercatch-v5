@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { parseOrderWithGemini } from '@/app/lib/gemini';
 
+export const runtime = 'nodejs';
+
 const ORDER_FORM_MARKER = '[오더캐치 주문서]';
 
 function kakaoSimpleText(text: string) {
