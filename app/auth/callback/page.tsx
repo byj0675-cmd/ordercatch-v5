@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 
-export default function AuthCallback() {
+import { Suspense } from "react";
+
+function AuthCallbackContent() {
   const router = useRouter();
 
   useEffect(() => {
@@ -30,5 +32,17 @@ export default function AuthCallback() {
     }}>
       로그인 처리 중...
     </div>
+  );
+}
+
+export default function AuthCallback() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        로딩 중...
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

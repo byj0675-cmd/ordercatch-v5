@@ -18,29 +18,42 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // 쿠키 기반 세션이 있을 경우(SSR 전환 시 대비)에만 갱신
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({ name, value, ...options })
-          response.cookies.set({ name, value, ...options })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({ name, value: '', ...options })
-          response.cookies.set({ name, value: '', ...options })
-        },
-      },
-    }
-  )
+  // 환경 변수 누락 시 Netlify Edge Function 크래시를 방지
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // 쿠키 세션 갱신만 수행 (리다이렉트 없음 — 클라이언트 StoreContext가 처리)
-  await supabase.auth.getSession()
+  if (!supabaseUrl || !supabaseKey) {
+    console.warn("Middleware: Missing Supabase environment variables! Skipping cookie session check.");
+    return response;
+  }
+
+  try {
+    // 쿠키 기반 세션이 있을 경우(SSR 전환 시 대비)에만 갱신
+    const supabase = createServerClient(
+      supabaseUrl,
+      supabaseKey,
+      {
+        cookies: {
+          get(name: string) {
+            return request.cookies.get(name)?.value
+          },
+          set(name: string, value: string, options: CookieOptions) {
+            request.cookies.set({ name, value, ...options })
+            response.cookies.set({ name, value, ...options })
+          },
+          remove(name: string, options: CookieOptions) {
+            request.cookies.set({ name, value: '', ...options })
+            response.cookies.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
+
+    // 쿠키 세션 갱신만 수행 (리다이렉트 없음 — 클라이언트 StoreContext가 처리)
+    await supabase.auth.getSession()
+  } catch (error) {
+    console.error("Middleware Supabase Session Error:", error);
+  }
 
   return response
 }
