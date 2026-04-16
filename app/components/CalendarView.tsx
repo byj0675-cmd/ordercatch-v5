@@ -372,7 +372,7 @@ function DesktopCalendar({ orders, onOrderClick, onDayClick, selectedDay }: Cale
                   <div style={{ width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", fontSize: 13, fontWeight: isToday(day) ? 800 : 500, background: isToday(day) ? "var(--accent)" : "transparent", color: isToday(day) ? "#fff" : isSun ? "#ff3b30" : isSat ? "#007aff" : "var(--text-primary)", marginBottom: 4 }}>{day}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {dayOrders.slice(0, 3).map((order) => {
-                      const cfg = STATUS_CONFIG[order.status];
+                      const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"];
                       const d = new Date(order.pickupDate);
                       const timeStr = `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
                       return (
