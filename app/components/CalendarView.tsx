@@ -8,6 +8,7 @@ interface CalendarViewProps {
   onOrderClick: (order: Order) => void;
   onDayClick?: (date: Date) => void;
   selectedDay?: Date | null;
+  onImageUpload?: (orderId: string, file: File) => Promise<void>;
 }
 
 // ── 날짜 유틸 ──────────────────────────────────────
@@ -52,81 +53,114 @@ function OptionChips({ options }: { options: Order["options"] }) {
 }
 
 // ── 주문 카드 (모바일용) ───────────────────────────
-function OrderCard({ order, onClick }: { order: Order; onClick: () => void }) {
+function OrderCard({ order, onClick, onImageUpload }: {
+  order: Order;
+  onClick: () => void;
+  onImageUpload?: (file: File) => Promise<void>;
+}) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
   const highlight = order.options.memo || order.options.custom;
+  const imageUrl = order.options.imageUrl;
+  const inputId = `img-${order.id}`;
+
   return (
-    <button
-      onClick={onClick}
-      className="order-card-btn"
-      style={{
-        width: "100%", textAlign: "left",
-        background: "#FFFFFF",
-        border: "1px solid rgba(0,0,0,0.06)",
-        borderRadius: 16, padding: "14px 16px",
-        display: "flex", flexDirection: "column", gap: 8,
-        cursor: "pointer",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-        transition: "all 0.18s ease",
-      }}
-    >
-      {/* 1순위: 고객명 + 픽업시간 + 상태 뱃지 */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 17, fontWeight: 800, color: "#111827", lineHeight: 1.2, flexShrink: 0 }}>
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={onClick}
+        className="order-card-btn"
+        style={{
+          width: "100%", textAlign: "left",
+          background: "#FFFFFF",
+          border: "1px solid rgba(0,0,0,0.05)",
+          borderRadius: 18, padding: "14px 16px",
+          display: "flex", flexDirection: "column", gap: 8,
+          cursor: "pointer",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.04)",
+          transition: "all 0.2s ease",
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 12px 36px rgba(79,70,229,0.10)"; (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 30px rgba(0,0,0,0.04)"; (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+      >
+        {/* Row 1: 픽업시간 + 고객명 + 상태 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, paddingRight: imageUrl ? 92 : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(79,70,229,0.07)", padding: "3px 8px", borderRadius: 20, flexShrink: 0 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5" }}>🕐 {formatTime(order.pickupDate)}</span>
+          </div>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#0f172a", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {order.customerName}
           </span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#374151", flexShrink: 0 }}>
-            {formatTime(order.pickupDate)}
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20, flexShrink: 0, whiteSpace: "nowrap", background: cfg?.bg || "#f1f5f9", color: cfg?.color || "#64748b" }}>
+            {cfg?.label || "상태없음"}
           </span>
         </div>
-        <span style={{
-          fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 20,
-          background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0, whiteSpace: "nowrap",
-        }}>
-          {cfg?.label || "상태알수없음"}
-        </span>
-      </div>
 
-      {/* 2순위: 상품명 + 금액 */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 14, fontWeight: 500, color: "#374151", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {order.productName}
-        </span>
-        {order.amount > 0 && (
-          <span style={{ fontSize: 14, fontWeight: 700, color: "#111827", flexShrink: 0, marginLeft: 8 }}>
-            {order.amount.toLocaleString()}원
+        {/* Row 2: 상품명 + 금액 */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, paddingRight: imageUrl ? 92 : 0 }}>
+          <span style={{ fontSize: 13, color: "#475569", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+            {order.productName}
           </span>
-        )}
-      </div>
+          {order.amount > 0 && (
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", flexShrink: 0 }}>
+              {order.amount.toLocaleString()}원
+            </span>
+          )}
+        </div>
 
-      {/* 형광펜 강조: 레터링 / 특이 요청 */}
-      {highlight && (
-        <div style={{
-          background: "#FFFBEB",
-          borderLeft: "3px solid #F59E0B",
-          borderRadius: "0 8px 8px 0",
-          padding: "6px 10px",
-          fontSize: 13, color: "#92400E", fontWeight: 500, lineHeight: 1.5,
-        }}>
-          {highlight}
+        {/* 요청사항 */}
+        {highlight && (
+          <div style={{ background: "#f8fafc", border: "1px solid rgba(0,0,0,0.06)", borderRadius: 10, padding: "7px 11px", fontSize: 12, color: "#334155", fontWeight: 500, lineHeight: 1.5 }}>
+            💬 {highlight}
+          </div>
+        )}
+
+        {/* 옵션 칩 */}
+        <OptionChips options={order.options} />
+
+        {/* 사진 추가 버튼 */}
+        <label
+          htmlFor={inputId}
+          onClick={(e) => e.stopPropagation()}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600, color: "#64748b", cursor: "pointer", padding: "4px 10px", borderRadius: 8, background: "rgba(0,0,0,0.04)", border: "1px solid rgba(0,0,0,0.06)", transition: "all 0.15s", userSelect: "none", alignSelf: "flex-start" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(79,70,229,0.08)"; (e.currentTarget as HTMLElement).style.color = "#4f46e5"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(79,70,229,0.2)"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.04)"; (e.currentTarget as HTMLElement).style.color = "#64748b"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,0.06)"; }}
+        >
+          📷 {imageUrl ? "사진 변경" : "사진 추가"}
+        </label>
+      </button>
+
+      {/* 썸네일 (카드 우측에 절대 배치) */}
+      {imageUrl && (
+        <div style={{ position: "absolute", top: 14, right: 14, width: 80, height: 80, borderRadius: 14, overflow: "hidden", border: "2px solid rgba(0,0,0,0.06)", pointerEvents: "none" }}>
+          <img src={imageUrl} alt="주문 이미지" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
         </div>
       )}
 
-      {/* 옵션 칩 */}
-      <OptionChips options={order.options} />
-    </button>
+      {/* 파일 선택 인풋 */}
+      <input
+        id={inputId}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file || !onImageUpload) return;
+          e.target.value = "";
+          await onImageUpload(file);
+        }}
+      />
+    </div>
   );
 }
 
 // ── 날짜 섹션 헤더 ────────────────────────────────
-function DaySection({ label, sublabel, orders, onOrderClick, accent, onHeaderClick }: {
+function DaySection({ label, sublabel, orders, onOrderClick, accent, onHeaderClick, onImageUpload }: {
   label: string;
   sublabel?: string;
   orders: Order[];
   onOrderClick: (o: Order) => void;
   accent?: string;
   onHeaderClick?: () => void;
+  onImageUpload?: (orderId: string, file: File) => Promise<void>;
 }) {
   const revenue = orders.reduce((s, o) => s + o.amount, 0);
   return (
@@ -158,7 +192,7 @@ function DaySection({ label, sublabel, orders, onOrderClick, accent, onHeaderCli
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {orders.map(o => <OrderCard key={o.id} order={o} onClick={() => onOrderClick(o)} />)}
+          {orders.map(o => <OrderCard key={o.id} order={o} onClick={() => onOrderClick(o)} onImageUpload={onImageUpload ? (file) => onImageUpload(o.id, file) : undefined} />)}
         </div>
       )}
     </div>
@@ -166,7 +200,7 @@ function DaySection({ label, sublabel, orders, onOrderClick, accent, onHeaderCli
 }
 
 // ── 모바일 뷰 ─────────────────────────────────────
-function MobileView({ orders, onOrderClick, onDayClick }: CalendarViewProps) {
+function MobileView({ orders, onOrderClick, onDayClick, onImageUpload }: CalendarViewProps) {
   const today = new Date();
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
@@ -233,6 +267,7 @@ function MobileView({ orders, onOrderClick, onDayClick }: CalendarViewProps) {
           onOrderClick={onOrderClick}
           accent="#007aff"
           onHeaderClick={onDayClick ? () => onDayClick(new Date(today.getFullYear(), today.getMonth(), today.getDate())) : undefined}
+          onImageUpload={onImageUpload}
         />
       </div>
 
@@ -245,6 +280,7 @@ function MobileView({ orders, onOrderClick, onDayClick }: CalendarViewProps) {
           onOrderClick={onOrderClick}
           accent="#af52de"
           onHeaderClick={onDayClick ? () => onDayClick(new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate())) : undefined}
+          onImageUpload={onImageUpload}
         />
       </div>
 
@@ -261,6 +297,7 @@ function MobileView({ orders, onOrderClick, onDayClick }: CalendarViewProps) {
               orders={group.orders}
               onOrderClick={onOrderClick}
               onHeaderClick={onDayClick ? () => onDayClick(group.date) : undefined}
+              onImageUpload={onImageUpload}
             />
           ))}
         </div>

@@ -199,8 +199,7 @@ function LandingContent() {
         }}>
           <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: COLOR.primary, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>📦</div>
-              <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: "-0.03em" }}>OrderCatch</span>
+              <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 26, width: "auto" }} />
             </div>
             <button onClick={handleLogin} style={{
               background: COLOR.accent, color: "#000", border: "none",
@@ -571,7 +570,9 @@ function LandingContent() {
       {/* ── Footer ── */}
       <footer style={{ padding: "32px 24px", background: "#111827", color: "#6B7280", fontSize: 12, textAlign: "center" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-          <div style={{ fontWeight: 700, color: "#9CA3AF", marginBottom: 8 }}>OrderCatch</div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 22, width: "auto", filter: "brightness(0) invert(1) opacity(0.6)" }} />
+          </div>
           <div>© 2026 OrderCatch · 소상공인을 위한 자동 장부 정리 서비스</div>
           <div style={{ marginTop: 8, display: "flex", justifyContent: "center", gap: 20 }}>
             <span style={{ cursor: "pointer" }}>이용약관</span>

@@ -11,4 +11,3 @@
 [functions]
   # Netlify Functions 타임아웃 (AI 파싱 API 등 느린 요청 대비)
   included_files = [".next/**"]
-  node_bundler = "esbuild"

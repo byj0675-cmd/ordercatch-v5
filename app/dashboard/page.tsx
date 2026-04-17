@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [isFetching, setIsFetching] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [isPasting, setIsPasting] = useState(false);
 
   const { profile, loading, updateStoreProfile } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -67,6 +68,39 @@ export default function Dashboard() {
     }, 500);
     return () => clearTimeout(timer);
   }, []);
+
+  // 전역 클립보드 이미지 붙여넣기 → Supabase order_images 업로드
+  useEffect(() => {
+    if (!profile?.id) return;
+    const handleGlobalPaste = async (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items || []);
+      const imageItem = items.find((item) => item.type.startsWith("image/"));
+      if (!imageItem) return;
+      const file = imageItem.getAsFile();
+      if (!file) return;
+
+      setIsPasting(true);
+      try {
+        const ext = file.type.split("/")[1] || "png";
+        const fileName = `${profile.id}/${Date.now()}.${ext}`;
+        const { error } = await supabase.storage
+          .from("order_images")
+          .upload(fileName, file, { contentType: file.type });
+        if (error) throw error;
+        const { data: urlData } = supabase.storage
+          .from("order_images")
+          .getPublicUrl(fileName);
+        await navigator.clipboard.writeText(urlData.publicUrl);
+        showToast("이미지 업로드 완료! URL이 클립보드에 복사됐습니다. 메모에 붙여넣기 하세요.", "success", "📎");
+      } catch (err: any) {
+        showToast("이미지 업로드 실패: " + (err.message || "알 수 없는 오류"), "error");
+      } finally {
+        setIsPasting(false);
+      }
+    };
+    document.addEventListener("paste", handleGlobalPaste);
+    return () => document.removeEventListener("paste", handleGlobalPaste);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!loading) {
@@ -212,6 +246,32 @@ export default function Dashboard() {
     }
   };
 
+  const handleImageUpload = async (orderId: string, file: File) => {
+    if (!profile?.id) return;
+    try {
+      const ext = file.type.split("/")[1] || "png";
+      const fileName = `${profile.id}/${orderId}_${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("order_images")
+        .upload(fileName, file, { contentType: file.type });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("order_images").getPublicUrl(fileName);
+      const imageUrl = urlData.publicUrl;
+      const targetOrder = orders.find((o) => o.id === orderId);
+      const { error: updateError } = await supabase
+        .from("orders")
+        .update({ options: { ...(targetOrder?.options || {}), imageUrl } })
+        .eq("id", orderId);
+      if (updateError) throw updateError;
+      setOrders((prev) =>
+        prev.map((o) => o.id === orderId ? { ...o, options: { ...o.options, imageUrl } } : o)
+      );
+      showToast("사진이 주문에 등록됐어요! 📷", "success");
+    } catch (err: any) {
+      showToast("사진 업로드 실패: " + (err.message || "알 수 없는 오류"), "error");
+    }
+  };
+
   const handleDeleteOrder = async (orderId: string) => {
     if (!confirm("정말 이 주문을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
     try {
@@ -295,8 +355,7 @@ export default function Dashboard() {
         >
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, #007aff, #5856d6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, boxShadow: "0 2px 8px rgba(0,122,255,0.3)" }}>📦</div>
-              <span style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-0.03em", color: "var(--text-primary)" }}>OrderCatch</span>
+              <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 26, width: "auto" }} />
             </div>
             <div style={{ flex: 1 }}></div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -306,78 +365,53 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <main className="main-pad">
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 3 }} suppressHydrationWarning>
-              {mounted ? nowStr : "오늘의 날짜"}
-            </div>
-            <h1 className="page-title">{loading ? "매장 정보 로딩 중..." : (profile?.store_name ?? "내 매장")}</h1>
-            {activeFilter !== "all" && (
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>필터:</span>
-                <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20, background: STATUS_CONFIG[activeFilter as OrderStatus]?.bg ?? "rgba(0,0,0,0.08)", color: STATUS_CONFIG[activeFilter as OrderStatus]?.color ?? "var(--text-primary)" }}>
-                  {SUMMARY_CARDS.find((c) => c.key === activeFilter)?.label}
-                </span>
-                <button style={{ fontSize: 12, color: "var(--text-tertiary)", background: "none", border: "none", cursor: "pointer", padding: 0 }} onClick={() => setActiveFilter("all")}>✕ 필터 해제</button>
-              </div>
-            )}
-          </div>
-
-          {/* ── 벤토 그리드 ── */}
-          <div className="bento-grid-wrap" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-            {/* 대형 카드 1 — 신규 주문 */}
-            <button
-              onClick={() => setActiveFilter("신규주문")}
-              style={{ gridColumn: "span 2", background: activeFilter === "신규주문" ? "linear-gradient(135deg, #10b981, #059669)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "신규주문" ? "translateY(-2px)" : "none" }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "신규주문" ? "rgba(255,255,255,0.7)" : "#059669", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>✨ 신규 주문 (입금완료)</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "신규주문" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{summaryData["신규주문"]}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
-              <div style={{ fontSize: 13, color: activeFilter === "신규주문" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>확정된 새로운 주문입니다</div>
-            </button>
-
-            {/* 대형 카드 2 — 픽업 대기 */}
-            <button
-              onClick={() => setActiveFilter("픽업대기")}
-              style={{ gridColumn: "span 2", background: activeFilter === "픽업대기" ? "linear-gradient(135deg, #f59e0b, #d97706)" : "#fff", borderRadius: 16, padding: "20px 24px", border: "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: activeFilter === "픽업대기" ? "translateY(-2px)" : "none" }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, color: activeFilter === "픽업대기" ? "rgba(255,255,255,0.7)" : "#d97706", marginBottom: 8, letterSpacing: "0.05em", textTransform: "uppercase" }}>🚀 픽업 대기</div>
-              <div style={{ fontSize: 40, fontWeight: 800, color: activeFilter === "픽업대기" ? "#fff" : "#111827", lineHeight: 1, marginBottom: 6 }}>{summaryData["픽업대기"]}<span style={{ fontSize: 18, fontWeight: 600, marginLeft: 4 }}>건</span></div>
-              <div style={{ fontSize: 13, color: activeFilter === "픽업대기" ? "rgba(255,255,255,0.7)" : "#6B7280" }}>제작 완료되어 픽업을 기다립니다</div>
-            </button>
-
-            {/* 소형 카드 4개: 제작중 / 완료 / 취소 / 매출 */}
-            {[
-              { key: "제작중" as FilterKey, label: "제작 중", icon: "🔨", color: "#2563eb", activeBg: "#dbeafe" },
-              { key: "완료" as FilterKey, label: "완료", icon: "✅", color: "#6b7280", activeBg: "#f3f4f6" },
-              { key: "취소" as FilterKey, label: "취소", icon: "✕", color: "#dc2626", activeBg: "#fee2e2" },
-              { key: "all" as FilterKey, label: "전체/매출", icon: "💰", color: "#0ea5e9", activeBg: "#e0f2fe", isRevenue: true },
-            ].map((card) => {
+        {/* ── Sticky Filter Pills ── */}
+        <div className="sticky-filter-pills" style={{
+          position: "sticky", top: 58, zIndex: 35,
+          background: "rgba(248,250,252,0.92)", backdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(0,0,0,0.05)",
+        }}>
+          <div style={{ maxWidth: 1400, margin: "0 auto", padding: "8px 16px", display: "flex", gap: 6, overflowX: "auto" }}>
+            {SUMMARY_CARDS.map((card) => {
               const isActive = activeFilter === card.key;
+              const count = mounted ? summaryData[card.key] : 0;
               return (
                 <button
                   key={card.key}
                   onClick={() => setActiveFilter(card.key)}
-                  style={{ background: isActive ? card.activeBg : "#fff", borderRadius: 16, padding: "16px 18px", border: isActive ? `1.5px solid ${card.color}40` : "none", cursor: "pointer", textAlign: "left", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.05)", transition: "all 0.2s ease", transform: isActive ? "translateY(-2px)" : "none" }}
+                  style={{
+                    padding: "6px 14px", borderRadius: 100, border: "none",
+                    cursor: "pointer", fontSize: 13, fontWeight: 700,
+                    whiteSpace: "nowrap", flexShrink: 0,
+                    background: isActive ? "#fff" : "transparent",
+                    color: isActive ? "#4f46e5" : "#64748b",
+                    boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.10)" : "none",
+                    transition: "all 0.2s",
+                  }}
                 >
-                  <div style={{ fontSize: 20, marginBottom: 8 }}>{card.icon}</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: isActive ? card.color : "#111827", lineHeight: 1, marginBottom: 4 }}>
-                    {card.isRevenue ? (todayStats.revenue > 0 ? `${(Math.floor(todayStats.revenue / 10000))}만` : "0") : summaryData[card.key]}
-                  </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? card.color : "#6B7280" }}>{card.label}</div>
+                  {card.label}{count > 0 ? ` ${count}` : ""}
                 </button>
               );
             })}
           </div>
+        </div>
 
+        <main className="main-pad">
           {/* ── Paste Board (Wizard) ── */}
           {profile?.id && mounted && (
-            <div style={{ marginBottom: 20 }}>
+            <div id="paste-board-wizard" style={{ marginBottom: 20 }}>
               <PasteBoard 
                 onParsed={() => fetchOrders(profile.id)} 
                 storeId={profile.id} 
               />
             </div>
           )}
+
+          {/* ── 이미지 드래그/붙여넣기 힌트 ── */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px 16px", background: "rgba(79,70,229,0.04)", border: "1.5px dashed rgba(79,70,229,0.18)", borderRadius: 12 }}>
+            <span style={{ fontSize: 16 }}>📷</span>
+            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>이미지를 복사해서 붙여넣거나, 각 주문 카드의 <strong style={{ color: "#4f46e5" }}>사진 추가</strong> 버튼을 눌러 첨부하세요</span>
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>주문 내역 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{filteredOrders.length}건</span></div>
@@ -392,7 +426,7 @@ export default function Dashboard() {
 
           <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
             {viewMode === "calendar" ? (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} />
+              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} onImageUpload={handleImageUpload} />
             ) : (
               filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
             )}
@@ -400,7 +434,15 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onStatusChange={handleStatusChange} onDelete={handleDeleteOrder} />}
+      {selectedOrder && (
+        <OrderDetailModal 
+          order={selectedOrder} 
+          onClose={() => setSelectedOrder(null)} 
+          onStatusChange={handleStatusChange} 
+          onDelete={handleDeleteOrder}
+          onUpdated={() => profile?.id && fetchOrders(profile.id)}
+        />
+      )}
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}
       {showManualSheet && profile?.id && (
         <ManualOrderSheet
@@ -436,21 +478,27 @@ export default function Dashboard() {
 
       {/* ── 프린트 전용 섹션 (화면에는 숨김, @media print 에서만 표시) ── */}
       <div id="print-section">
-        <div style={{ padding: "20px 28px", fontFamily: "sans-serif" }}>
-          <div style={{ borderBottom: "2px solid #111", paddingBottom: 12, marginBottom: 20 }}>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>
-              {profile?.store_name} — 오늘 주문 출력
-            </h1>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555" }}>
-              {mounted ? new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" }) : ""}&nbsp;&nbsp;
-              총 {todayOrders.length}건 &nbsp;|&nbsp; {todayOrders.reduce((s, o) => s + o.amount, 0).toLocaleString()}원
-            </p>
+        <div style={{ padding: "40px 32px", color: "#000", background: "#fff" }}>
+          <div style={{ borderBottom: "3px solid #000", paddingBottom: 16, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>
+                ORDER SHEET
+              </h1>
+              <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>
+                {profile?.store_name} — 전체 주문 내역
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#666" }}>출력 일시: {new Date().toLocaleString("ko-KR")}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 700 }}>총 {todayOrders.length}건 출력됨</p>
+            </div>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ borderBottom: "1.5px solid #ccc" }}>
-                {["번호", "픽업시간", "고객명", "상품", "레터링 / 요청", "금액", "상태"].map((h) => (
-                  <th key={h} style={{ padding: "8px 6px", textAlign: "left", fontWeight: 700, whiteSpace: "nowrap" }}>{h}</th>
+              <tr>
+                {["순번", "픽업시간", "고객명", "주문 상품", "요청사항 / 메모", "결제"].map((h) => (
+                  <th key={h} style={{ padding: "12px 8px", borderBottom: "2px solid #000", textAlign: "left", fontSize: 12, fontWeight: 800, color: "#000" }}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -459,26 +507,45 @@ export default function Dashboard() {
                 const d = new Date(o.pickupDate);
                 const timeStr = isNaN(d.getTime()) ? "-" : `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
                 return (
-                  <tr key={o.id} style={{ borderBottom: "1px solid #eee" }}>
-                    <td style={{ padding: "8px 6px", color: "#888" }}>{i + 1}</td>
-                    <td style={{ padding: "8px 6px", fontWeight: 700 }}>{timeStr}</td>
-                    <td style={{ padding: "8px 6px", fontWeight: 700 }}>{o.customerName}</td>
-                    <td style={{ padding: "8px 6px" }}>{o.productName}</td>
-                    <td style={{ padding: "8px 6px", color: (o.options.memo || o.options.custom) ? "#92400E" : "#aaa" }}>
-                      {o.options.memo || o.options.custom || "-"}
+                  <tr key={o.id} style={{ borderBottom: "1px solid #ddd" }}>
+                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#666" }}>{i + 1}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 800 }}>{timeStr}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 800 }}>{o.customerName}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 13, fontWeight: 600 }}>{o.productName}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 12, lineHeight: 1.4, maxWidth: 250 }}>
+                      {o.options.memo || o.options.custom || <span style={{ color: "#ccc" }}>-</span>}
                     </td>
-                    <td style={{ padding: "8px 6px", whiteSpace: "nowrap" }}>{o.amount > 0 ? `${o.amount.toLocaleString()}원` : "-"}</td>
-                    <td style={{ padding: "8px 6px" }}>{o.status}</td>
+                    <td style={{ padding: "12px 8px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+                      {o.amount > 0 ? `${o.amount.toLocaleString()}원` : "대기"}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
-          {todayOrders.length === 0 && (
-            <p style={{ textAlign: "center", color: "#aaa", padding: "32px 0", fontSize: 14 }}>오늘 픽업 주문이 없습니다.</p>
-          )}
+          
+          <div style={{ marginTop: 40, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#666" }}>
+            <span>OrderCatch 매장 관리 시스템</span>
+            <span>본 확인서는 인쇄용으로 최적화되었습니다.</span>
+          </div>
         </div>
       </div>
+
+      {/* ── 이미지 붙여넣기 업로드 오버레이 ── */}
+      {isPasting && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(79,70,229,0.12)", backdropFilter: "blur(10px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
+        }}>
+          <div style={{ width: 64, height: 64, borderRadius: 20, background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, boxShadow: "0 8px 32px rgba(79,70,229,0.4)" }}>📎</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#1e1b4b" }}>이미지 업로드 중...</div>
+          <div style={{ width: 200, height: 4, background: "rgba(79,70,229,0.15)", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: "#4f46e5", borderRadius: 4, animation: "paste-progress 1.4s ease-in-out infinite" }} />
+          </div>
+          <style>{`@keyframes paste-progress { 0%{width:0%;margin-left:0} 50%{width:65%;margin-left:0} 100%{width:0%;margin-left:100%} }`}</style>
+        </div>
+      )}
 
       {showOnboarding && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>

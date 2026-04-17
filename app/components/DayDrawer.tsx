@@ -317,82 +317,56 @@ export default function DayDrawer({
 
       {/* ─── 프린트 전용 섹션 ───────────────────────────── */}
       <div id="day-print-section">
-        <div style={{ padding: "20px 28px", fontFamily: "sans-serif" }}>
-          <div
-            style={{
-              borderBottom: "2px solid #111",
-              paddingBottom: 12,
-              marginBottom: 20,
-            }}
-          >
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>
-              {dateLabel} — 주문서 출력
-            </h1>
-            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#555" }}>
-              총 {sorted.length}건&nbsp;|&nbsp;{totalRevenue.toLocaleString()}원
-            </p>
+        <div style={{ padding: "40px 32px", color: "#000", background: "#fff" }}>
+          <div style={{ borderBottom: "3px solid #000", paddingBottom: 16, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>
+                DAILY ORDER SHEET
+              </h1>
+              <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>
+                {dateLabel} 주문 내역
+              </p>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ margin: 0, fontSize: 13, color: "#666" }}>출력 일시: {new Date().toLocaleString("ko-KR")}</p>
+              <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 800 }}>금액 합계: {totalRevenue.toLocaleString()}원</p>
+            </div>
           </div>
-          <table
-            style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
-          >
+
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
-              <tr style={{ borderBottom: "1.5px solid #ccc" }}>
-                {["번호", "픽업시간", "고객명", "상품", "레터링·요청", "금액", "상태"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "8px 6px",
-                        textAlign: "left",
-                        fontWeight: 700,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+              <tr>
+                {["No", "시간", "고객명", "주문 상품", "요청사항 / 메모", "금액"].map((h) => (
+                  <th key={h} style={{ padding: "12px 8px", borderBottom: "2px solid #000", textAlign: "left", fontSize: 13, fontWeight: 800 }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {sorted.map((o, i) => (
-                <tr key={o.id} style={{ borderBottom: "1px solid #eee" }}>
-                  <td style={{ padding: "8px 6px", color: "#888" }}>{i + 1}</td>
-                  <td style={{ padding: "8px 6px", fontWeight: 700 }}>
-                    {formatTime(o.pickupDate)}
+                <tr key={o.id} style={{ borderBottom: "1px solid #ddd" }}>
+                  <td style={{ padding: "12px 8px", fontSize: 12, color: "#666" }}>{i + 1}</td>
+                  <td style={{ padding: "12px 8px", fontSize: 15, fontWeight: 800 }}>{formatTime(o.pickupDate)}</td>
+                  <td style={{ padding: "12px 8px", fontSize: 15, fontWeight: 800 }}>{o.customerName}</td>
+                  <td style={{ padding: "12px 8px", fontSize: 14 }}>{o.productName}</td>
+                  <td style={{ padding: "12px 8px", fontSize: 13, lineHeight: 1.5, maxWidth: 260 }}>
+                    {o.options.memo || o.options.custom || <span style={{ color: "#ccc" }}>-</span>}
                   </td>
-                  <td style={{ padding: "8px 6px", fontWeight: 700 }}>
-                    {o.customerName}
+                  <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 700, textAlign: "right" }}>
+                    {o.amount.toLocaleString()}원
                   </td>
-                  <td style={{ padding: "8px 6px" }}>{o.productName}</td>
-                  <td
-                    style={{
-                      padding: "8px 6px",
-                      color: o.options.memo || o.options.custom ? "#92400E" : "#aaa",
-                    }}
-                  >
-                    {o.options.memo || o.options.custom || "-"}
-                  </td>
-                  <td style={{ padding: "8px 6px", whiteSpace: "nowrap" }}>
-                    {o.amount > 0 ? `${o.amount.toLocaleString()}원` : "-"}
-                  </td>
-                  <td style={{ padding: "8px 6px" }}>{o.status}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+
           {sorted.length === 0 && (
-            <p
-              style={{
-                textAlign: "center",
-                color: "#aaa",
-                padding: "32px 0",
-                fontSize: 14,
-              }}
-            >
-              해당 날짜 주문이 없습니다.
-            </p>
+            <div style={{ textAlign: "center", padding: "60px 0", color: "#999" }}>해당 날짜에 등록된 주문이 없습니다.</div>
           )}
+
+          <div style={{ marginTop: 60, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#888" }}>
+            <span>OrderCatch</span>
+            <span>주문 확인용 내부 문서</span>
+          </div>
         </div>
       </div>
     </>

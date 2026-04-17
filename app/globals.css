@@ -363,20 +363,80 @@ body {
 
 /* ── Print ── */
 @media print {
-  #dashboard-main  { display: none !important; }
-  .fab-wrap        { display: none !important; }
-  #print-section   { display: block !important; }
+  /* 불필요한 모든 UI 요소 숨김 */
+  #dashboard-main, 
+  .fab-wrap, 
+  header, 
+  nav,
+  .toast,
+  .modal-backdrop,
+  .drawer-backdrop,
+  #settings-btn,
+  .btn,
+  #paste-board-wizard,
+  .sticky-filter-pills { 
+    display: none !important; 
+  }
+
+  /* 인쇄 전용 섹션 표시 및 위치 초기화 */
+  #print-section, 
+  #day-print-section { 
+    display: block !important; 
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+  }
 
   @page {
     size: A4;
-    margin: 18mm 14mm;
+    margin: 15mm 12mm;
   }
 
-  body {
-    background: #fff !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+  /* 다크 모드 무시 및 잉크 절약 강제 */
+  :root {
+    --bg-primary: #ffffff !important;
+    --bg-card: #ffffff !important;
+    --bg-card-solid: #ffffff !important;
+    --text-primary: #000000 !important;
+    --text-secondary: #333333 !important;
+    --text-tertiary: #666666 !important;
+    --border: #eeeeee !important;
+    --border-strong: #cccccc !important;
   }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    color-scheme: light !important;
+    -webkit-print-color-adjust: economy !important;
+    print-color-adjust: economy !important;
+  }
+
+  * {
+    text-shadow: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: economy !important;
+    print-color-adjust: economy !important;
+  }
+
+  /* 인쇄 전용 섹션 내부의 모든 배경색 강제 흰색 */
+  #print-section, 
+  #print-section *,
+  #day-print-section,
+  #day-print-section * {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 테이블 스타일 가이드 */
+  table { page-break-inside: auto; border-collapse: collapse !important; border: 1px solid #eee !important; }
+  tr { page-break-inside: avoid; page-break-after: auto; }
+  thead { display: table-header-group; }
+  tfoot { display: table-footer-group; }
 }
 
 #print-section {
