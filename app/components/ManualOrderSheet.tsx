@@ -12,34 +12,60 @@ interface ManualOrderSheetProps {
   onSaved: () => void;
 }
 
+type SheetMode = "order" | "personal";
 const STATUSES: OrderStatus[] = ["신규주문", "제작중", "픽업대기", "완료"];
 
 export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOrderSheetProps) {
+  const [mode, setMode] = useState<SheetMode>("order");
+
+  // 주문 필드
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("");
   const [productName, setProductName] = useState("");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [status, setStatus] = useState<OrderStatus>("신규주문");
   const [saving, setSaving] = useState(false);
 
-  // ── 중복 체크 상태 ────────────────────────────────────
+  // 중복 체크 상태
   const [existingOrders, setExistingOrders] = useState<Order[]>([]);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [updateOrderId, setUpdateOrderId] = useState<string | null>(null);
 
-  // ── 이미지 상태 ──────────────────────────────────────
+  // 이미지 상태
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const resetForm = () => {
+    setCustomerName("");
+    setPhone("");
+    setProductName("");
+    setPickupDate("");
+    setPickupTime("");
+    setEndTime("");
+    setAmount("");
+    setMemo("");
+    setStatus("신규주문");
+    setImagePreview(null);
+    setImageFile(null);
+    setUpdateOrderId(null);
+  };
+
+  const handleModeChange = (next: SheetMode) => {
+    setMode(next);
+    resetForm();
+  };
+
   // 클립보드 붙여넣기 (Ctrl+V)
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
+      if (mode === "personal") return;
       const items = e.clipboardData?.items;
       if (!items) return;
       for (const item of Array.from(items)) {
@@ -52,7 +78,7 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
     };
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, []);
+  }, [mode]);
 
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -107,7 +133,7 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
   };
 
   const checkDuplicate = async () => {
-    // 업데이트 모드이거나 이름/연락처가 없으면 체크 안함
+    if (mode === "personal") return;
     if (updateOrderId || !customerName.trim() || !phone.trim() || phone.length < 10) return;
 
     try {
@@ -161,40 +187,55 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
     setMemo(order.options?.memo || order.options?.custom || "");
     setImagePreview(order.options?.imageUrl || null);
     setImageFile(null);
-
     setShowDuplicateModal(false);
   };
 
   const handleSave = async () => {
-    if (!customerName.trim() || !productName.trim()) {
-      showToast("고객명과 상품명은 필수입니다.", "warning");
-      return;
+    if (mode === "personal") {
+      if (!productName.trim()) {
+        showToast("일정 제목은 필수입니다.", "warning");
+        return;
+      }
+    } else {
+      if (!customerName.trim() || !productName.trim()) {
+        showToast("고객명과 상품명은 필수입니다.", "warning");
+        return;
+      }
     }
+
     setSaving(true);
     try {
-      // 이미지 먼저 업로드
       let imageUrl: string | undefined;
-      if (imageFile) {
+      if (imageFile && mode === "order") {
         const url = await uploadImageToStorage(imageFile);
         if (url) imageUrl = url;
       }
 
       const pickupIso = pickupDate
-        ? new Date(`${pickupDate}T${pickupTime || "12:00"}:00`).toISOString()
+        ? new Date(`${pickupDate}T${pickupTime || "09:00"}:00`).toISOString()
         : new Date().toISOString();
 
       const options: Record<string, any> = {};
-      if (memo.trim()) options.memo = memo.trim();
-      if (imageUrl) options.imageUrl = imageUrl;
+
+      if (mode === "personal") {
+        options.isPersonal = true;
+        if (memo.trim()) options.memo = memo.trim();
+        if (endTime && pickupDate) {
+          options.endTime = new Date(`${pickupDate}T${endTime}:00`).toISOString();
+        }
+      } else {
+        if (memo.trim()) options.memo = memo.trim();
+        if (imageUrl) options.imageUrl = imageUrl;
+      }
 
       const payload = {
         store_id: storeId,
-        customer_name: customerName.trim(),
-        phone: phone.trim(),
+        customer_name: mode === "personal" ? "개인일정" : customerName.trim(),
+        phone: mode === "personal" ? "" : phone.trim(),
         product_name: productName.trim(),
         pickup_date: pickupIso,
-        amount: Number(amount.replace(/[^0-9]/g, "")) || 0,
-        status,
+        amount: mode === "personal" ? 0 : (Number(amount.replace(/[^0-9]/g, "")) || 0),
+        status: mode === "personal" ? "신규주문" as OrderStatus : status,
         source: "manual",
         options,
       };
@@ -202,11 +243,11 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
       if (updateOrderId) {
         const { error } = await supabase.from("orders").update(payload).eq("id", updateOrderId);
         if (error) throw error;
-        showToast("주문이 성공적으로 수정되었습니다 ✏️", "success");
+        showToast(mode === "personal" ? "일정이 수정되었습니다 📅" : "주문이 성공적으로 수정되었습니다 ✏️", "success");
       } else {
         const { error } = await supabase.from("orders").insert(payload);
         if (error) throw error;
-        showToast("주문이 성공적으로 등록되었습니다 ✅", "success");
+        showToast(mode === "personal" ? "일정이 등록되었습니다 📅" : "주문이 성공적으로 등록되었습니다 ✅", "success");
       }
 
       onSaved();
@@ -219,7 +260,9 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
     }
   };
 
-  const canSave = customerName.trim().length > 0 && productName.trim().length > 0 && !saving && !uploadingImage;
+  const canSave = mode === "personal"
+    ? productName.trim().length > 0 && !saving
+    : customerName.trim().length > 0 && productName.trim().length > 0 && !saving && !uploadingImage;
 
   return (
     <div
@@ -250,7 +293,9 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px 0" }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827" }}>수기 주문 등록</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#111827" }}>
+            {mode === "personal" ? "개인 일정 등록" : "수기 주문 등록"}
+          </h2>
           <button
             onClick={onClose}
             style={{
@@ -260,6 +305,39 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
               fontSize: 14, color: "#6B7280",
             }}
           >✕</button>
+        </div>
+
+        {/* Mode toggle tabs */}
+        <div style={{ padding: "14px 24px 0", maxWidth: 600, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
+          <div style={{
+            display: "flex",
+            background: "#F3F4F6",
+            borderRadius: 12,
+            padding: 4,
+            gap: 4,
+          }}>
+            {(["order", "personal"] as SheetMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => handleModeChange(m)}
+                style={{
+                  flex: 1,
+                  padding: "9px 0",
+                  borderRadius: 9,
+                  border: "none",
+                  background: mode === m ? "#fff" : "transparent",
+                  color: mode === m ? "#111827" : "#6B7280",
+                  fontSize: 14,
+                  fontWeight: mode === m ? 700 : 500,
+                  cursor: "pointer",
+                  boxShadow: mode === m ? "0 1px 4px rgba(0,0,0,0.08)" : "none",
+                  transition: "all 0.18s",
+                }}
+              >
+                {m === "order" ? "주문" : "개인일정"}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Form body */}
@@ -283,18 +361,7 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
                 ✏️ 기존 주문을 수정하는 중입니다.
               </span>
               <button
-                onClick={() => {
-                  setUpdateOrderId(null);
-                  setCustomerName("");
-                  setPhone("");
-                  setProductName("");
-                  setPickupDate("");
-                  setPickupTime("");
-                  setAmount("");
-                  setMemo("");
-                  setImagePreview(null);
-                  setImageFile(null);
-                }}
+                onClick={resetForm}
                 style={{
                   background: "transparent",
                   border: "none",
@@ -309,152 +376,186 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
             </div>
           )}
 
-          <Field label="고객명 *">
-            <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} onBlur={checkDuplicate} placeholder="홍길동" style={inputStyle} />
-          </Field>
-
-          <Field label="연락처">
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={checkDuplicate} placeholder="010-0000-0000" inputMode="tel" style={inputStyle} />
-          </Field>
-
-          <Field label="상품명 *">
-            <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="레터링 케이크 2호" style={inputStyle} />
-          </Field>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Field label="픽업 날짜">
-              <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} style={inputStyle} />
-            </Field>
-            <Field label="픽업 시간">
-              <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} style={inputStyle} />
-            </Field>
-          </div>
-
-          <Field label="금액 (원)">
-            <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="35000" inputMode="numeric" style={inputStyle} />
-          </Field>
-
-          <Field label="레터링 / 특이 요청">
-            <textarea
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="생일 축하해 지수야! / 견과류 알러지 있어요"
-              style={{ ...inputStyle, minHeight: 72, resize: "vertical" }}
-            />
-          </Field>
-
-          {/* ── 이미지 업로드 영역 ── */}
-          <Field label="참고 이미지 (선택)">
-            {imagePreview ? (
-              /* 미리보기 */
-              <div style={{ position: "relative", display: "inline-block" }}>
-                <img
-                  src={imagePreview}
-                  alt="미리보기"
-                  style={{
-                    width: "100%",
-                    maxHeight: 220,
-                    objectFit: "cover",
-                    borderRadius: 12,
-                    border: "1.5px solid #E5E7EB",
-                    display: "block",
-                  }}
+          {mode === "personal" ? (
+            /* ── 개인일정 폼 ── */
+            <>
+              <Field label="일정 제목 *">
+                <input
+                  value={productName}
+                  onChange={(e) => setProductName(e.target.value)}
+                  placeholder="예: 원재료 수령, 휴무일, 미팅"
+                  style={inputStyle}
                 />
-                <button
-                  onClick={() => { setImageFile(null); setImagePreview(null); }}
-                  style={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "rgba(0,0,0,0.55)",
-                    border: "none",
-                    color: "#fff",
-                    fontSize: 13,
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >✕</button>
-                <div style={{ marginTop: 6, fontSize: 12, color: "#6B7280", textAlign: "center" }}>
-                  {imageFile?.name}
-                </div>
-              </div>
-            ) : (
-              /* 드롭존 */
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
-                style={{
-                  border: `2px dashed ${isDragging ? "#007aff" : "#D1D5DB"}`,
-                  borderRadius: 12,
-                  padding: "24px 16px",
-                  textAlign: "center",
-                  cursor: "pointer",
-                  background: isDragging ? "rgba(0,122,255,0.04)" : "#FAFAFA",
-                  transition: "all 0.2s",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <div style={{ fontSize: 28 }}>🖼️</div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
-                  드래그 & 드롭 또는 클릭하여 이미지 선택
-                </div>
-                <div style={{ fontSize: 12, color: "#9CA3AF" }}>
-                  Ctrl+V로 클립보드 이미지도 붙여넣기 가능 · JPG, PNG, WEBP · 최대 10MB
-                </div>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImageFile(file);
-              }}
-            />
-          </Field>
+              </Field>
 
-          <Field label="초기 상태">
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {STATUSES.map((s) => {
-                const cfg = STATUS_CONFIG[s] || STATUS_CONFIG["신규주문"] || {};
-                const isActive = status === s;
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setStatus(s)}
+              <Field label="일정 내용">
+                <textarea
+                  value={memo}
+                  onChange={(e) => setMemo(e.target.value)}
+                  placeholder="세부 내용을 입력하세요 (선택)"
+                  style={{ ...inputStyle, minHeight: 72, resize: "vertical" }}
+                />
+              </Field>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                <Field label="날짜">
+                  <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} style={inputStyle} />
+                </Field>
+                <Field label="시작 시간">
+                  <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} style={inputStyle} />
+                </Field>
+                <Field label="종료 시간">
+                  <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} style={inputStyle} />
+                </Field>
+              </div>
+            </>
+          ) : (
+            /* ── 주문 폼 ── */
+            <>
+              <Field label="고객명 *">
+                <input value={customerName} onChange={(e) => setCustomerName(e.target.value)} onBlur={checkDuplicate} placeholder="홍길동" style={inputStyle} />
+              </Field>
+
+              <Field label="연락처">
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={checkDuplicate} placeholder="010-0000-0000" inputMode="tel" style={inputStyle} />
+              </Field>
+
+              <Field label="상품명 *">
+                <input value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="레터링 케이크 2호" style={inputStyle} />
+              </Field>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <Field label="픽업 날짜">
+                  <input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} style={inputStyle} />
+                </Field>
+                <Field label="픽업 시간">
+                  <input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} style={inputStyle} />
+                </Field>
+              </div>
+
+              <Field label="금액 (원)">
+                <input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="35000" inputMode="numeric" style={inputStyle} />
+              </Field>
+
+              <Field label="레터링 / 특이 요청">
+                <textarea
+                  value={memo}
+                  onChange={(e) => setMemo(e.target.value)}
+                  placeholder="생일 축하해 지수야! / 견과류 알러지 있어요"
+                  style={{ ...inputStyle, minHeight: 72, resize: "vertical" }}
+                />
+              </Field>
+
+              {/* 이미지 업로드 영역 */}
+              <Field label="참고 이미지 (선택)">
+                {imagePreview ? (
+                  <div style={{ position: "relative", display: "inline-block" }}>
+                    <img
+                      src={imagePreview}
+                      alt="미리보기"
+                      style={{
+                        width: "100%",
+                        maxHeight: 220,
+                        objectFit: "cover",
+                        borderRadius: 12,
+                        border: "1.5px solid #E5E7EB",
+                        display: "block",
+                      }}
+                    />
+                    <button
+                      onClick={() => { setImageFile(null); setImagePreview(null); }}
+                      style={{
+                        position: "absolute",
+                        top: 8, right: 8,
+                        width: 28, height: 28,
+                        borderRadius: "50%",
+                        background: "rgba(0,0,0,0.55)",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >✕</button>
+                    <div style={{ marginTop: 6, fontSize: 12, color: "#6B7280", textAlign: "center" }}>
+                      {imageFile?.name}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
                     style={{
-                      padding: "7px 16px", borderRadius: 20,
-                      border: `1.5px solid ${isActive ? (cfg?.color || "#6b7280") : "transparent"}`,
-                      background: isActive ? (cfg?.bg || "#f3f4f6") : "#F3F4F6",
-                      color: isActive ? (cfg?.color || "#6b7280") : "#6B7280",
-                      fontSize: 13, fontWeight: isActive ? 700 : 500,
-                      cursor: "pointer", transition: "all 0.15s",
+                      border: `2px dashed ${isDragging ? "#007aff" : "#D1D5DB"}`,
+                      borderRadius: 12,
+                      padding: "24px 16px",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      background: isDragging ? "rgba(0,122,255,0.04)" : "#FAFAFA",
+                      transition: "all 0.2s",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: 8,
                     }}
                   >
-                    {cfg?.label || "알수없음"}
-                  </button>
-                );
-              })}
-            </div>
-          </Field>
+                    <div style={{ fontSize: 28 }}>🖼️</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#374151" }}>
+                      드래그 & 드롭 또는 클릭하여 이미지 선택
+                    </div>
+                    <div style={{ fontSize: 12, color: "#9CA3AF" }}>
+                      Ctrl+V로 클립보드 이미지도 붙여넣기 가능 · JPG, PNG, WEBP · 최대 10MB
+                    </div>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: "none" }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageFile(file);
+                  }}
+                />
+              </Field>
+
+              <Field label="초기 상태">
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {STATUSES.map((s) => {
+                    const cfg = STATUS_CONFIG[s] || STATUS_CONFIG["신규주문"] || {};
+                    const isActive = status === s;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setStatus(s)}
+                        style={{
+                          padding: "7px 16px", borderRadius: 20,
+                          border: `1.5px solid ${isActive ? (cfg?.color || "#6b7280") : "transparent"}`,
+                          background: isActive ? (cfg?.bg || "#f3f4f6") : "#F3F4F6",
+                          color: isActive ? (cfg?.color || "#6b7280") : "#6B7280",
+                          fontSize: 13, fontWeight: isActive ? 700 : 500,
+                          cursor: "pointer", transition: "all 0.15s",
+                        }}
+                      >
+                        {cfg?.label || "알수없음"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </Field>
+            </>
+          )}
 
           <button
             onClick={handleSave}
             disabled={!canSave}
             style={{
-              background: updateOrderId ? "#007aff" : "#111827", 
+              background: mode === "personal" ? "#6B7280" : updateOrderId ? "#007aff" : "#111827",
               color: "#fff",
               border: "none", borderRadius: 14,
               padding: "16px", fontSize: 16, fontWeight: 700,
@@ -464,7 +565,7 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
               marginTop: 4,
             }}
           >
-            {saving ? "저장 중..." : uploadingImage ? "이미지 업로드 중..." : updateOrderId ? "주문 수정하기" : "주문 등록하기"}
+            {saving ? "저장 중..." : uploadingImage ? "이미지 업로드 중..." : mode === "personal" ? "일정 등록하기" : updateOrderId ? "주문 수정하기" : "주문 등록하기"}
           </button>
         </div>
       </div>

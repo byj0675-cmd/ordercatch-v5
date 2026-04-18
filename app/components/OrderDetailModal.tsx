@@ -27,7 +27,7 @@ interface OrderDetailModalProps {
   onClose: () => void;
   onStatusChange?: (orderId: string, newStatus: Order["status"]) => void;
   onDelete?: (orderId: string) => void;
-  onUpdated?: () => void;
+  onUpdated?: (updatedOrder: Order) => void;
 }
 
 const STATUSES: Order["status"][] = ["신규주문", "제작중", "픽업대기", "완료", "취소"];
@@ -43,7 +43,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   const [editStatus, setEditStatus] = useState<Order["status"]>(order.status);
   const [editAmount, setEditAmount] = useState(String(order.amount));
   const [editMemo, setEditMemo] = useState(order.options?.memo || order.options?.custom || "");
-  
+
   // 날짜/시간 분리 처리
   const initialDate = new Date(order.pickupDate);
   const isValidInitialDate = !isNaN(initialDate.getTime());
@@ -52,8 +52,10 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
 
   // --- 이미지 상태 관리 ---
   const [imagePreview, setImagePreview] = useState<string | null>(order.options?.imageUrl || null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
+  // 이미 업로드된 URL (선택 즉시 백그라운드 업로드 시작)
+  const uploadedImageUrlRef = useRef<string | null>(order.options?.imageUrl || null);
+  const uploadPromiseRef = useRef<Promise<string | null> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const cfg = STATUS_CONFIG[editStatus] || STATUS_CONFIG["신규주문"] || {};
@@ -76,80 +78,94 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     return () => window.removeEventListener("paste", handlePaste);
   }, []);
 
+  // 파일 선택 즉시 백그라운드 업로드 시작 — 저장 시 이미 완료되어 있음
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
       showToast("이미지 파일만 가능합니다.", "warning");
       return;
     }
-    setImageFile(file);
+    // 프리뷰 즉시 표시
     const reader = new FileReader();
     reader.onload = (e) => setImagePreview(e.target?.result as string);
     reader.readAsDataURL(file);
-    showToast("새 사진이 준비되었습니다. 저장 시 업로드됩니다.", "info", "📸");
-  }, []);
 
-  const uploadImage = async (file: File): Promise<string | null> => {
+    // 백그라운드 업로드 시작
     setUploadingImage(true);
-    try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const path = `${order.storeId}/order_${Date.now()}.${ext}`;
-      const { error } = await supabase.storage.from("order_images").upload(path, file);
-      if (error) throw error;
-
-      const { data } = supabase.storage.from("order_images").getPublicUrl(path);
-      return data.publicUrl;
-    } catch (err) {
-      console.error("Upload error:", err);
-      return null;
-    } finally {
-      setUploadingImage(false);
-    }
-  };
+    const promise = (async (): Promise<string | null> => {
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${order.storeId}/order_${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("order_images").upload(path, file);
+        if (error) throw error;
+        const { data } = supabase.storage.from("order_images").getPublicUrl(path);
+        uploadedImageUrlRef.current = data.publicUrl;
+        showToast("사진 업로드 완료!", "success", "📸");
+        return data.publicUrl;
+      } catch (err) {
+        console.error("Upload error:", err);
+        showToast("사진 업로드 실패. 다시 시도해주세요.", "error");
+        return null;
+      } finally {
+        setUploadingImage(false);
+      }
+    })();
+    uploadPromiseRef.current = promise;
+    showToast("사진 업로드 중... 다른 정보를 계속 수정할 수 있습니다.", "info", "📸");
+  }, [order.storeId]);
 
   const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      let finalImageUrl = order.options?.imageUrl || null;
-      if (imageFile) {
-        const uploadedUrl = await uploadImage(imageFile);
-        if (uploadedUrl) finalImageUrl = uploadedUrl;
-      } else {
-        // 이미지 수정 없이 단순히 다른 필드만 저장할 때 Preview가 null이면 삭제된 것으로 간주
-        if (!imagePreview) finalImageUrl = null;
-      }
-
-      const pickupIso = editDate 
-        ? new Date(`${editDate}T${editTime || "12:00"}:00`).toISOString() 
-        : order.pickupDate;
-
-      const { error } = await supabase
-        .from("orders")
-        .update({
-          customer_name: editName,
-          phone: editPhone,
-          product_name: editProduct,
-          pickup_date: pickupIso,
-          amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
-          status: editStatus,
-          options: {
-            ...order.options,
-            memo: editMemo,
-            imageUrl: finalImageUrl,
-          }
-        })
-        .eq("id", order.id);
-
-      if (error) throw error;
-
-      showToast("주문 정보가 성공적으로 수정되었습니다.", "success", "✨");
-      if (onUpdated) onUpdated();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      showToast("저장에 실패했습니다.", "error");
-    } finally {
+    // 이미지가 아직 업로드 중이면 완료 대기 (대부분의 경우 이미 완료됨)
+    let finalImageUrl: string | null = uploadedImageUrlRef.current;
+    if (!imagePreview) {
+      finalImageUrl = null; // 이미지 삭제됨
+    } else if (uploadingImage && uploadPromiseRef.current) {
+      setIsSaving(true);
+      finalImageUrl = await uploadPromiseRef.current;
       setIsSaving(false);
+      if (!finalImageUrl) return; // 업로드 실패 시 저장 중단
     }
+
+    const pickupIso = editDate
+      ? new Date(`${editDate}T${editTime || "12:00"}:00`).toISOString()
+      : order.pickupDate;
+
+    const updatedOrder: Order = {
+      ...order,
+      customerName: editName,
+      phone: editPhone,
+      productName: editProduct,
+      pickupDate: pickupIso,
+      amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
+      status: editStatus,
+      options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
+    };
+
+    // Optimistic: 즉시 UI 업데이트 후 모달 닫기
+    if (onUpdated) onUpdated(updatedOrder);
+    onClose();
+
+    // 백그라운드 Supabase 동기화
+    (async () => {
+      try {
+        const { error } = await supabase
+          .from("orders")
+          .update({
+            customer_name: editName,
+            phone: editPhone,
+            product_name: editProduct,
+            pickup_date: pickupIso,
+            amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
+            status: editStatus,
+            options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl },
+          })
+          .eq("id", order.id);
+        if (error) throw error;
+      } catch (err) {
+        console.error(err);
+        showToast("저장에 실패했습니다. 변경사항이 되돌아갑니다.", "error");
+        if (onUpdated) onUpdated(order); // 롤백
+      }
+    })();
   };
 
   return (
@@ -269,7 +285,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                         style={{ background: "rgba(255,255,255,0.95)", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", color: "#1E293B" }}
                       >사진 변경</button>
                       <button 
-                        onClick={() => { setImageFile(null); setImagePreview(null); }}
+                        onClick={() => { uploadedImageUrlRef.current = null; uploadPromiseRef.current = null; setImagePreview(null); }}
                         style={{ background: "#EF4444", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)" }}
                       >삭제</button>
                     </div>
@@ -440,7 +456,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
               >닫기</button>
               <button
                 onClick={handleSave}
-                disabled={isSaving || uploadingImage}
+                disabled={isSaving}
                 style={{
                   flex: 2,
                   padding: "18px",
@@ -450,14 +466,14 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                   border: "none",
                   fontWeight: 900,
                   fontSize: 17,
-                  cursor: (isSaving || uploadingImage) ? "not-allowed" : "pointer",
+                  cursor: isSaving ? "not-allowed" : "pointer",
                   boxShadow: "0 10px 20px rgba(79, 70, 229, 0.3)",
                   transition: "all 0.2s"
                 }}
                 onMouseEnter={e => !isSaving && (e.currentTarget.style.transform = "translateY(-2px)")}
                 onMouseLeave={e => !isSaving && (e.currentTarget.style.transform = "translateY(0)")}
               >
-                {isSaving ? "데이터 동기화 중..." : (uploadingImage ? "사진 업로드 중..." : "주문 정보 업데이트")}
+                {isSaving ? "사진 업로드 대기 중..." : (uploadingImage ? "📤 사진 업로드 중 (저장 가능)" : "주문 정보 업데이트")}
               </button>
             </div>
 

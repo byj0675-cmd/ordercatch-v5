@@ -2,6 +2,7 @@
 // Force refresh for Next.js 16 Turbopack cache - 2026-04-09 13:42
 
 import { useState, useMemo, useEffect } from "react";
+import Image from "next/image";
 import {
   STATUS_CONFIG,
   SOURCE_CONFIG,
@@ -41,8 +42,8 @@ export default function Dashboard() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManualSheet, setShowManualSheet] = useState(false);
-  const [selectedStoreId, setSelectedStoreId] = useState<string>("all");
-  const [isFetching, setIsFetching] = useState(false);
+  const [selectedStoreId] = useState<string>("all");
+  const [, setIsFetching] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isPasting, setIsPasting] = useState(false);
@@ -197,11 +198,6 @@ export default function Dashboard() {
     };
   }, [orders, selectedStoreId, mounted]);
 
-  const totalRevenue = useMemo(
-    () => filteredOrders.reduce((s, o) => s + o.amount, 0),
-    [filteredOrders]
-  );
-
   const todayOrders = useMemo(() => {
     if (!mounted) return [];
     const today = new Date();
@@ -216,12 +212,6 @@ export default function Dashboard() {
       })
       .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
   }, [orders, mounted]);
-
-  const todayStats = useMemo(() => ({
-    count: todayOrders.length,
-    revenue: todayOrders.reduce((s, o) => s + o.amount, 0),
-    completed: todayOrders.filter((o) => o.status === "완료").length,
-  }), [todayOrders]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
     try {
@@ -315,16 +305,6 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  const nowStr = useMemo(() => {
-    if (!mounted) return "";
-    return new Date().toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      weekday: "long",
-    });
-  }, [mounted]);
-
   // 로딩 중 — 전체 화면 스피너
   if (loading) {
     return (
@@ -355,7 +335,7 @@ export default function Dashboard() {
         >
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 26, width: "auto" }} />
+              <Image src="/logo.png" alt="OrderCatch Logo" height={26} width={120} style={{ height: 26, width: "auto" }} priority />
             </div>
             <div style={{ flex: 1 }}></div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -371,7 +351,7 @@ export default function Dashboard() {
           background: "rgba(248,250,252,0.92)", backdropFilter: "blur(16px)",
           borderBottom: "1px solid rgba(0,0,0,0.05)",
         }}>
-          <div style={{ maxWidth: 1400, margin: "0 auto", padding: "8px 16px", display: "flex", gap: 6, overflowX: "auto" }}>
+          <div style={{ maxWidth: 1400, margin: "0 auto", padding: "6px 12px", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
             {SUMMARY_CARDS.map((card) => {
               const isActive = activeFilter === card.key;
               const count = mounted ? summaryData[card.key] : 0;
@@ -380,14 +360,15 @@ export default function Dashboard() {
                   key={card.key}
                   onClick={() => setActiveFilter(card.key)}
                   style={{
-                    padding: "6px 14px", borderRadius: 100, border: "none",
+                    minHeight: 44, padding: "0 14px", borderRadius: 100, border: "none",
                     cursor: "pointer", fontSize: 13, fontWeight: 700,
                     whiteSpace: "nowrap", flexShrink: 0,
                     background: isActive ? "#fff" : "transparent",
                     color: isActive ? "#4f46e5" : "#64748b",
                     boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.10)" : "none",
                     transition: "all 0.2s",
-                  }}
+                    WebkitTapHighlightColor: "transparent",
+                  } as React.CSSProperties}
                 >
                   {card.label}{count > 0 ? ` ${count}` : ""}
                 </button>
@@ -400,36 +381,140 @@ export default function Dashboard() {
           {/* ── Paste Board (Wizard) ── */}
           {profile?.id && mounted && (
             <div id="paste-board-wizard" style={{ marginBottom: 20 }}>
-              <PasteBoard 
-                onParsed={() => fetchOrders(profile.id)} 
-                storeId={profile.id} 
+              <PasteBoard
+                onParsed={() => fetchOrders(profile.id)}
+                storeId={profile.id}
               />
             </div>
           )}
 
-          {/* ── 이미지 드래그/붙여넣기 힌트 ── */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px 16px", background: "rgba(79,70,229,0.04)", border: "1.5px dashed rgba(79,70,229,0.18)", borderRadius: 12 }}>
-            <span style={{ fontSize: 16 }}>📷</span>
-            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>이미지를 복사해서 붙여넣거나, 각 주문 카드의 <strong style={{ color: "#4f46e5" }}>사진 추가</strong> 버튼을 눌러 첨부하세요</span>
-          </div>
+          <div className="dashboard-grid">
+            {/* ── Main content column ── */}
+            <div>
+              {/* 이미지 드래그/붙여넣기 힌트 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px 16px", background: "rgba(79,70,229,0.04)", border: "1.5px dashed rgba(79,70,229,0.18)", borderRadius: 12 }}>
+                <span style={{ fontSize: 16 }}>📷</span>
+                <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>이미지를 복사해서 붙여넣거나, 각 주문 카드의 <strong style={{ color: "#4f46e5" }}>사진 추가</strong> 버튼을 눌러 첨부하세요</span>
+              </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>주문 내역 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{filteredOrders.length}건</span></div>
-            <div style={{ display: "flex", gap: 2, background: "rgba(0,0,0,0.07)", padding: 3, borderRadius: 10 }}>
-              {(["calendar", "list"] as ViewMode[]).map((mode) => (
-                <button key={mode} onClick={() => setViewMode(mode)} style={{ padding: "5px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: viewMode === mode ? "#fff" : "transparent", color: viewMode === mode ? "var(--text-primary)" : "var(--text-secondary)", boxShadow: viewMode === mode ? "var(--shadow-sm)" : "none", transition: "all 0.15s" }}>
-                  {mode === "calendar" ? "📅 캘린더" : "📋 목록"}
-                </button>
-              ))}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>주문 내역 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{filteredOrders.length}건</span></div>
+                <div style={{ display: "flex", gap: 2, background: "rgba(0,0,0,0.07)", padding: 3, borderRadius: 10 }}>
+                  {(["calendar", "list"] as ViewMode[]).map((m) => (
+                    <button key={m} onClick={() => setViewMode(m)} style={{ padding: "5px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: viewMode === m ? "#fff" : "transparent", color: viewMode === m ? "var(--text-primary)" : "var(--text-secondary)", boxShadow: viewMode === m ? "var(--shadow-sm)" : "none", transition: "all 0.15s" }}>
+                      {m === "calendar" ? "📅 캘린더" : "📋 목록"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
+                {viewMode === "calendar" ? (
+                  filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} onImageUpload={handleImageUpload} onStatusChange={handleStatusChange} />
+                ) : (
+                  filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
+                )}
+              </div>
             </div>
-          </div>
 
-          <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
-            {viewMode === "calendar" ? (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} onImageUpload={handleImageUpload} />
-            ) : (
-              filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
-            )}
+            {/* ── PC Sidebar ── */}
+            <aside className="dashboard-sidebar">
+              {/* 오늘 통계 카드 */}
+              <div style={{ background: "#fff", borderRadius: 18, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>오늘 현황</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>픽업 주문</span>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>{mounted ? todayOrders.filter(o => !(o.options as any)?.isPersonal).length : 0}<span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", marginLeft: 2 }}>건</span></span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>예상 매출</span>
+                    <span style={{ fontSize: 17, fontWeight: 800, color: "#4f46e5" }}>
+                      {mounted ? todayOrders.filter(o => !(o.options as any)?.isPersonal).reduce((sum, o) => sum + (o.amount || 0), 0).toLocaleString() : 0}
+                      <span style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", marginLeft: 2 }}>원</span>
+                    </span>
+                  </div>
+                  {mounted && summaryData["신규주문"] > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                      <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✨ 신규</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "#059669" }}>{summaryData["신규주문"]}건</span>
+                    </div>
+                  )}
+                  {mounted && summaryData["픽업대기"] > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: summaryData["신규주문"] > 0 ? 0 : 8, borderTop: summaryData["신규주문"] > 0 ? "none" : "1px solid rgba(0,0,0,0.05)" }}>
+                      <span style={{ fontSize: 13, color: "#d97706", fontWeight: 600 }}>🚀 픽업대기</span>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: "#d97706" }}>{summaryData["픽업대기"]}건</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 주문 등록 CTA */}
+              {profile?.id && (
+                <button
+                  onClick={() => setShowManualSheet(true)}
+                  style={{
+                    width: "100%",
+                    background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: 16,
+                    padding: "16px",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    boxShadow: "0 4px 20px rgba(79,70,229,0.35)",
+                    transition: "all 0.2s",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(79,70,229,0.45)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(79,70,229,0.35)"; }}
+                >
+                  <span style={{ fontSize: 18 }}>✏️</span> 주문 등록
+                </button>
+              )}
+
+              {/* 오늘 픽업 리스트 미리보기 */}
+              {mounted && todayOrders.filter(o => !(o.options as any)?.isPersonal).length > 0 && (
+                <div style={{ background: "#fff", borderRadius: 18, padding: "16px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>오늘 픽업</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {todayOrders.filter(o => !(o.options as any)?.isPersonal).slice(0, 5).map((o) => {
+                      const d = new Date(o.pickupDate);
+                      const timeStr = isNaN(d.getTime()) ? "--:--" : `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+                      return (
+                        <button
+                          key={o.id}
+                          onClick={() => setSelectedOrder(o)}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 10,
+                            background: "rgba(0,0,0,0.02)", border: "none",
+                            borderRadius: 10, padding: "8px 10px", cursor: "pointer",
+                            textAlign: "left", width: "100%", transition: "background 0.12s",
+                          }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(79,70,229,0.06)"; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.02)"; }}
+                        >
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", minWidth: 36 }}>{timeStr}</span>
+                          <div style={{ flex: 1, overflow: "hidden" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.customerName}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.productName}</div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                    {todayOrders.filter(o => !(o.options as any)?.isPersonal).length > 5 && (
+                      <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", paddingTop: 4 }}>
+                        +{todayOrders.filter(o => !(o.options as any)?.isPersonal).length - 5}건 더
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </aside>
           </div>
         </main>
       </div>
@@ -440,7 +525,7 @@ export default function Dashboard() {
           onClose={() => setSelectedOrder(null)} 
           onStatusChange={handleStatusChange} 
           onDelete={handleDeleteOrder}
-          onUpdated={() => profile?.id && fetchOrders(profile.id)}
+          onUpdated={(updatedOrder) => setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o))}
         />
       )}
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}

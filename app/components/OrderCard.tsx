@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { Order, STATUS_CONFIG } from "../lib/mockData";
 
 export function OptionChips({ options }: { options: Order["options"] }) {
@@ -94,7 +95,7 @@ export default function OrderCard({ order, onClick }: { order: Order; onClick: (
               flexShrink: 0,
             }}
           >
-            <img src={imageUrl} alt="주문 이미지" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <Image src={imageUrl} alt="주문 이미지" fill sizes="52px" style={{ objectFit: "cover" }} />
           </div>
         )}
 

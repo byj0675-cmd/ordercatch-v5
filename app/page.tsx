@@ -5,6 +5,7 @@ import { showToast } from "@/app/components/Toast";
 import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoreProvider } from "./context/StoreContext";
+import Image from "next/image";
 
 // ── Scroll-reveal hook ──────────────────────────────────────────────────────
 function useScrollReveal() {
@@ -199,7 +200,7 @@ function LandingContent() {
         }}>
           <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 26, width: "auto" }} />
+              <Image src="/logo.png" alt="OrderCatch Logo" height={26} width={120} style={{ height: 26, width: "auto" }} priority />
             </div>
             <button onClick={handleLogin} style={{
               background: COLOR.accent, color: "#000", border: "none",
@@ -571,7 +572,7 @@ function LandingContent() {
       <footer style={{ padding: "32px 24px", background: "#111827", color: "#6B7280", fontSize: 12, textAlign: "center" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <img src="/logo.png" alt="OrderCatch Logo" style={{ height: 22, width: "auto", filter: "brightness(0) invert(1) opacity(0.6)" }} />
+            <Image src="/logo.png" alt="OrderCatch Logo" height={22} width={100} style={{ height: 22, width: "auto", filter: "brightness(0) invert(1) opacity(0.6)" }} />
           </div>
           <div>© 2026 OrderCatch · 소상공인을 위한 자동 장부 정리 서비스</div>
           <div style={{ marginTop: 8, display: "flex", justifyContent: "center", gap: 20 }}>
