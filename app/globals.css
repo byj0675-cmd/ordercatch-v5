@@ -51,6 +51,11 @@ body {
   color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   min-height: 100vh;
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
 }
 
 /* Scrollbar */
@@ -98,6 +103,14 @@ body {
 .animate-scaleIn { animation: scaleIn 0.25s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-toastIn { animation: toastIn 0.35s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-toastOut { animation: toastOut 0.25s ease forwards; }
+
+/* ── Skeleton Screen ── */
+.skeleton {
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 10px;
+}
 
 /* Glass card */
 .glass-card {
@@ -509,7 +522,7 @@ body {
   border-radius: 8px;
 }
 
-/* ── Dashboard Grid (PC Sidebar) ── */
+/* ── Dashboard Grid (PC 2-column) ── */
 .dashboard-grid {
   display: flex;
   flex-direction: column;
@@ -521,16 +534,25 @@ body {
 @media (min-width: 1100px) {
   .dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 290px;
+    grid-template-columns: 3fr 2fr;
     gap: 20px;
     align-items: start;
   }
   .dashboard-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 14px;
     position: sticky;
-    top: 120px;
+    top: 116px;
+    height: calc(100vh - 140px);
+    overflow: hidden;
+  }
+}
+
+/* ── Mobile full-width guard ── */
+@media (max-width: 1099px) {
+  .main-pad, #dashboard-main, .dashboard-grid {
+    max-width: 100dvw;
+    overflow-x: hidden;
   }
 }
 

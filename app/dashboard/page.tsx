@@ -17,6 +17,7 @@ import PasteBoard from "../components/PasteBoard";
 import ManualOrderSheet from "../components/ManualOrderSheet";
 import FAB from "../components/FAB";
 import DayDrawer from "../components/DayDrawer";
+import VerticalTimeline from "../components/VerticalTimeline";
 import { useStoreProvider } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
@@ -305,13 +306,33 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  // 로딩 중 — 전체 화면 스피너
+  // 로딩 중 — 스켈레톤 화면
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-        <div style={{ width: 40, height: 40, border: "3px solid rgba(0,122,255,0.2)", borderTopColor: "#007aff", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>로딩 중...</div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", overflow: "hidden" }}>
+        {/* Header skeleton */}
+        <div style={{ height: 58, background: "rgba(245,245,247,0.85)", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", padding: "0 24px", gap: 16 }}>
+          <div className="skeleton" style={{ width: 110, height: 24, borderRadius: 8 }} />
+          <div style={{ flex: 1 }} />
+          <div className="skeleton" style={{ width: 60, height: 32, borderRadius: 10 }} />
+          <div className="skeleton" style={{ width: 72, height: 32, borderRadius: 10 }} />
+        </div>
+        {/* Filter pills skeleton */}
+        <div style={{ padding: "8px 16px", display: "flex", gap: 8, borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+          {[90, 80, 72, 85, 68, 62].map((w, i) => (
+            <div key={i} className="skeleton" style={{ width: w, height: 36, borderRadius: 20, flexShrink: 0 }} />
+          ))}
+        </div>
+        {/* Body skeleton */}
+        <div style={{ padding: "16px 14px", maxWidth: 1400, margin: "0 auto" }}>
+          <div className="skeleton" style={{ height: 68, borderRadius: 16, marginBottom: 14 }} />
+          <div className="skeleton" style={{ height: 38, borderRadius: 12, marginBottom: 14 }} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <div className="skeleton" style={{ width: 100, height: 22, borderRadius: 8 }} />
+            <div className="skeleton" style={{ width: 140, height: 34, borderRadius: 10 }} />
+          </div>
+          <div className="skeleton" style={{ height: 480, borderRadius: 20 }} />
+        </div>
       </div>
     );
   }
@@ -346,11 +367,21 @@ export default function Dashboard() {
         </header>
 
         {/* ── Sticky Filter Pills ── */}
-        <div className="sticky-filter-pills" style={{
-          position: "sticky", top: 58, zIndex: 35,
-          background: "rgba(248,250,252,0.92)", backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(0,0,0,0.05)",
-        }}>
+        <div
+          className="sticky-filter-pills"
+          style={{ position: "sticky", top: 58, zIndex: 35, background: "rgba(248,250,252,0.92)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}
+          onTouchStart={(e) => { (e.currentTarget as any)._tx = e.touches[0].clientX; }}
+          onTouchEnd={(e) => {
+            const startX = (e.currentTarget as any)._tx;
+            if (startX == null) return;
+            const dx = e.changedTouches[0].clientX - startX;
+            if (Math.abs(dx) < 50) return;
+            const keys = SUMMARY_CARDS.map(c => c.key);
+            const idx = keys.indexOf(activeFilter);
+            if (dx < 0 && idx < keys.length - 1) setActiveFilter(keys[idx + 1]);
+            else if (dx > 0 && idx > 0) setActiveFilter(keys[idx - 1]);
+          }}
+        >
           <div style={{ maxWidth: 1400, margin: "0 auto", padding: "6px 12px", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
             {SUMMARY_CARDS.map((card) => {
               const isActive = activeFilter === card.key;
@@ -417,103 +448,27 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* ── PC Sidebar ── */}
+            {/* ── PC Sidebar: 30-day Timeline ── */}
             <aside className="dashboard-sidebar">
-              {/* 오늘 통계 카드 */}
-              <div style={{ background: "#fff", borderRadius: 18, padding: "18px 20px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.06em" }}>오늘 현황</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>픽업 주문</span>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: "#0f172a" }}>{mounted ? todayOrders.filter(o => !(o.options as any)?.isPersonal).length : 0}<span style={{ fontSize: 13, fontWeight: 500, color: "#94a3b8", marginLeft: 2 }}>건</span></span>
+              <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20, height: "100%", display: "flex", flexDirection: "column" }}>
+                {mounted && (
+                  <VerticalTimeline
+                    orders={orders}
+                    onOrderClick={setSelectedOrder}
+                    onAddOrder={profile?.id ? () => setShowManualSheet(true) : undefined}
+                    onStatusChange={handleStatusChange}
+                  />
+                )}
+                {!mounted && (
+                  <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+                    <div className="skeleton" style={{ height: 28, width: 140, borderRadius: 8 }} />
+                    <div className="skeleton" style={{ height: 70, borderRadius: 12 }} />
+                    {[...Array(5)].map((_, i) => (
+                      <div key={i} className="skeleton" style={{ height: 56, borderRadius: 10 }} />
+                    ))}
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>예상 매출</span>
-                    <span style={{ fontSize: 17, fontWeight: 800, color: "#4f46e5" }}>
-                      {mounted ? todayOrders.filter(o => !(o.options as any)?.isPersonal).reduce((sum, o) => sum + (o.amount || 0), 0).toLocaleString() : 0}
-                      <span style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8", marginLeft: 2 }}>원</span>
-                    </span>
-                  </div>
-                  {mounted && summaryData["신규주문"] > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.05)" }}>
-                      <span style={{ fontSize: 13, color: "#059669", fontWeight: 600 }}>✨ 신규</span>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: "#059669" }}>{summaryData["신규주문"]}건</span>
-                    </div>
-                  )}
-                  {mounted && summaryData["픽업대기"] > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: summaryData["신규주문"] > 0 ? 0 : 8, borderTop: summaryData["신규주문"] > 0 ? "none" : "1px solid rgba(0,0,0,0.05)" }}>
-                      <span style={{ fontSize: 13, color: "#d97706", fontWeight: 600 }}>🚀 픽업대기</span>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: "#d97706" }}>{summaryData["픽업대기"]}건</span>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
-
-              {/* 주문 등록 CTA */}
-              {profile?.id && (
-                <button
-                  onClick={() => setShowManualSheet(true)}
-                  style={{
-                    width: "100%",
-                    background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 16,
-                    padding: "16px",
-                    fontSize: 15,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    boxShadow: "0 4px 20px rgba(79,70,229,0.35)",
-                    transition: "all 0.2s",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 24px rgba(79,70,229,0.45)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 20px rgba(79,70,229,0.35)"; }}
-                >
-                  <span style={{ fontSize: 18 }}>✏️</span> 주문 등록
-                </button>
-              )}
-
-              {/* 오늘 픽업 리스트 미리보기 */}
-              {mounted && todayOrders.filter(o => !(o.options as any)?.isPersonal).length > 0 && (
-                <div style={{ background: "#fff", borderRadius: 18, padding: "16px 18px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#94a3b8", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>오늘 픽업</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {todayOrders.filter(o => !(o.options as any)?.isPersonal).slice(0, 5).map((o) => {
-                      const d = new Date(o.pickupDate);
-                      const timeStr = isNaN(d.getTime()) ? "--:--" : `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-                      return (
-                        <button
-                          key={o.id}
-                          onClick={() => setSelectedOrder(o)}
-                          style={{
-                            display: "flex", alignItems: "center", gap: 10,
-                            background: "rgba(0,0,0,0.02)", border: "none",
-                            borderRadius: 10, padding: "8px 10px", cursor: "pointer",
-                            textAlign: "left", width: "100%", transition: "background 0.12s",
-                          }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(79,70,229,0.06)"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.02)"; }}
-                        >
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", minWidth: 36 }}>{timeStr}</span>
-                          <div style={{ flex: 1, overflow: "hidden" }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.customerName}</div>
-                            <div style={{ fontSize: 11, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.productName}</div>
-                          </div>
-                        </button>
-                      );
-                    })}
-                    {todayOrders.filter(o => !(o.options as any)?.isPersonal).length > 5 && (
-                      <div style={{ fontSize: 11, color: "#94a3b8", textAlign: "center", paddingTop: 4 }}>
-                        +{todayOrders.filter(o => !(o.options as any)?.isPersonal).length - 5}건 더
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
             </aside>
           </div>
         </main>
