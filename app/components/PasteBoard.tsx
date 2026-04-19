@@ -1,5 +1,4 @@
 "use client";
-// Force refresh for Next.js 16 Turbopack cache - 2026-04-08
 
 import { useState } from "react";
 import { Order, SOURCE_CONFIG } from "../lib/mockData";
@@ -12,21 +11,27 @@ interface PasteBoardProps {
   storeId: string;
 }
 
+interface EditedData {
+  customerName: string;
+  productName: string;
+  pickupDate: string; // "YYYY-MM-DDTHH:mm"
+  phone: string;
+  amount: string;
+  memo: string;
+}
+
 const EXAMPLE_TEXTS = [
   "안녕하세요~ 내일 오후 3시에 뚱카롱 20개 픽업 예약하고 싶어요. 딸기/초코/바닐라 혼합으로요. 견과류 알러지 있어요. 카드 결제할게요!",
-  "포레스트 베이커리 예약해요. 이번 주 토요일 오전 11시 레터링 케이크 2호 주문이요. 문구는 '생일 축하해 지수야!' 로 부탁드려요. 초도 넣어주세요.",
-  "네일 예약 문의요. 4월 5일 오전 10시에 젤 손발 세트 가능할까요? 디자인은 누드핑크 + 실버 체인 아트로요. 연락처는 010-1234-5678입니다.",
+  "포레스트 베이커리 예약해요. 이번 주 토요일 오전 11시 레터링 케이크 2호 주문이요. 문구는 '생일 축하해 지수야!' 로 부탁드려요.",
+  "네일 예약 문의요. 4월 5일 오전 10시에 젤 손발 세트 가능할까요? 디자인은 누드핑크 + 실버 체인 아트. 연락처 010-1234-5678.",
 ];
 
 export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [text, setText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [parsedResult, setParsedResult] = useState<Record<string, string> | null>(null);
-  const [rawParsedData, setRawParsedData] = useState<any>(null);
+  const [editedData, setEditedData] = useState<EditedData | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // ── 중복 체크 상태 ────────────────────────────────────
   const [existingOrders, setExistingOrders] = useState<Order[]>([]);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
@@ -36,338 +41,303 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       return;
     }
     setIsParsing(true);
-    setParsedResult(null);
-    setRawParsedData(null);
-
+    setEditedData(null);
     try {
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, storeId })
+        body: JSON.stringify({ text, storeId }),
       });
       const data = await res.json();
-      
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || "파싱 실패");
 
-      // Save raw data for registration
-      setRawParsedData(data);
+      const pickupDateStr = data.pickupDate
+        ? new Date(data.pickupDate).toISOString().slice(0, 16)
+        : "";
 
-      // JSON 포맷을 테이블용으로 직관적 매핑 (미리보기용)
-      const viewResult: Record<string, string> = {
-        고객명: data.customerName,
-        상품명: data.productName,
-        픽업일시: data.pickupDate ? new Date(data.pickupDate).toLocaleString("ko-KR") : "미정",
-        연락처: data.phone || "없음",
-      };
+      setEditedData({
+        customerName: data.customerName || "",
+        productName: data.productName || "",
+        pickupDate: pickupDateStr,
+        phone: data.phone || "",
+        amount: data.amount ? String(data.amount) : "",
+        memo: data.options?.memo || "",
+      });
 
-      if (data.options) {
-        Object.entries(data.options).forEach(([k, v]) => {
-          if (v) viewResult[k] = v as string;
-        });
-      }
-
-      setParsedResult(viewResult);
-      showToast("AI 분석이 완료되었습니다. 내용을 확인 후 장부에 저장해 주세요.", "info", "✅");
+      showToast("AI 정리 완료! 내용을 확인하고 수정하세요.", "success", "✅");
     } catch (e: any) {
-      console.error(e);
-      showToast(e.message || "서버 오류가 발생했습니다.", "error", "❌");
+      console.error("[PasteBoard] Parse error:", e);
+      showToast(e.message || "AI 분석 실패. 다시 시도해 주세요.", "error");
     } finally {
       setIsParsing(false);
     }
   };
 
   const handleSaveClick = async () => {
-    if (!rawParsedData || isSaving) return;
+    if (!editedData || isSaving) return;
 
-    if (rawParsedData.customerName && rawParsedData.phone) {
+    if (!editedData.customerName.trim()) {
+      showToast("고객명을 입력해 주세요.", "warning");
+      return;
+    }
+    if (!editedData.productName.trim()) {
+      showToast("상품명을 입력해 주세요.", "warning");
+      return;
+    }
+
+    // Duplicate check
+    if (editedData.customerName.trim() && editedData.phone.trim().length >= 10) {
       try {
         const { data, error } = await supabase
           .from("orders")
           .select("*")
           .eq("store_id", storeId)
-          .eq("customer_name", rawParsedData.customerName)
-          .eq("phone", rawParsedData.phone)
+          .eq("customer_name", editedData.customerName.trim())
+          .eq("phone", editedData.phone.trim())
           .order("created_at", { ascending: false });
 
         if (!error && data && data.length > 0) {
-          const mappedOrders: Order[] = data.map((row) => ({
-            id: row.id,
-            storeId: row.store_id,
-            storeName: "",
-            storeType: "dessert",
-            customerName: row.customer_name,
-            phone: row.phone,
-            productName: row.product_name,
-            pickupDate: row.pickup_date,
-            status: row.status as any,
-            amount: row.amount,
-            options: row.options || {},
-            source: row.source,
-            createdAt: row.created_at || new Date().toISOString(),
+          const mapped: Order[] = data.map((row) => ({
+            id: row.id, storeId: row.store_id, storeName: "", storeType: "dessert",
+            customerName: row.customer_name, phone: row.phone, productName: row.product_name,
+            pickupDate: row.pickup_date, status: row.status as any, amount: row.amount,
+            options: row.options || {}, source: row.source, createdAt: row.created_at || new Date().toISOString(),
           }));
-
-          setExistingOrders(mappedOrders);
+          setExistingOrders(mapped);
           setShowDuplicateModal(true);
           return;
         }
       } catch (e) {
-        console.error("Duplicate check failed:", e);
+        console.error("[PasteBoard] Duplicate check error:", e);
       }
     }
 
-    // 중복 없으면 바로 저장
     await confirmSave();
   };
 
   const confirmSave = async (existingId?: string) => {
+    if (!editedData) return;
     setIsSaving(true);
     setShowDuplicateModal(false);
 
     try {
-      const orderPayload = { ...rawParsedData };
-      if (existingId) {
-        orderPayload.existingId = existingId;
-      } else {
-        orderPayload.intent = "create"; // 명시적으로 강제 생성을 위해 세팅
+      const pickupIso = editedData.pickupDate
+        ? new Date(editedData.pickupDate).toISOString()
+        : new Date().toISOString();
+
+      if (isNaN(new Date(pickupIso).getTime())) {
+        throw new Error("픽업 날짜 형식이 올바르지 않습니다.");
       }
 
-      const res = await fetch("/api/orders/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderData: orderPayload, storeId })
-      });
-      const result = await res.json();
+      const options: Record<string, any> = {};
+      if (editedData.memo.trim()) options.memo = editedData.memo.trim();
 
-      if (!res.ok) throw new Error(result.error);
+      const payload = {
+        store_id: storeId,
+        customer_name: editedData.customerName.trim(),
+        phone: editedData.phone.trim(),
+        product_name: editedData.productName.trim(),
+        pickup_date: pickupIso,
+        amount: Number(editedData.amount.replace(/[^0-9]/g, "")) || 0,
+        status: "신규주문",
+        source: "manual",
+        options,
+      };
 
-      showToast(result.isUpdate ? "기존 예약 정보가 성공적으로 수정되었습니다! ✏️" : "새로운 주문이 장부에 등록되었습니다! 🎉", "success", "✓");
-      
-      // Reset UI
+      console.log("[PasteBoard] Saving to Supabase:", payload);
+
+      let error;
+      if (existingId) {
+        ({ error } = await supabase.from("orders").update(payload).eq("id", existingId));
+      } else {
+        ({ error } = await supabase.from("orders").insert(payload));
+      }
+
+      if (error) {
+        console.error("[PasteBoard] Supabase error:", error);
+        throw new Error(error.message);
+      }
+
+      showToast(existingId ? "기존 주문이 수정되었습니다! ✏️" : "주문이 등록되었습니다! 🎉", "success");
+
       setIsExpanded(false);
       setText("");
-      setParsedResult(null);
-      setRawParsedData(null);
-
-      // Refresh Dashboard list
-      if (onParsed) {
-        onParsed({ productName: rawParsedData.productName, status: "신규주문" });
-      }
+      setEditedData(null);
+      if (onParsed) onParsed({ productName: editedData.productName, status: "신규주문" });
     } catch (e: any) {
-      console.error(e);
-      showToast(e.message || "저장 중 오류가 발생했습니다.", "error", "❌");
+      console.error("[PasteBoard] Save error:", e);
+      showToast(e.message || "저장 중 오류가 발생했습니다.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleExampleClick = (example: string) => {
-    setText(example);
-    setIsExpanded(true);
-    setParsedResult(null);
+  const resetAll = () => {
+    setIsExpanded(false);
+    setText("");
+    setEditedData(null);
   };
 
+  /* ── 접힌 상태 ── */
   if (!isExpanded) {
     return (
       <button
         onClick={() => setIsExpanded(true)}
         style={{
-          width: "100%",
+          width: "100%", minHeight: 64,
           padding: "14px 20px",
-          background: "rgba(0,122,255,0.06)",
-          border: "1.5px dashed rgba(0,122,255,0.3)",
-          borderRadius: 14,
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          transition: "all 0.15s",
-          color: "var(--accent)",
+          background: "linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.04))",
+          border: "1.5px dashed rgba(79,70,229,0.28)",
+          borderRadius: 16, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 12,
+          WebkitTapHighlightColor: "transparent",
+          transition: "background 0.15s",
         }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(0,122,255,0.1)";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLElement).style.background = "rgba(0,122,255,0.06)";
-        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(79,70,229,0.11)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.04))"; }}
       >
-        <span style={{ fontSize: 20 }}>✨</span>
-        <div style={{ textAlign: "left" }}>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>복붙 마법사로 주문 등록</div>
-          <div style={{ fontSize: 12, opacity: 0.75, marginTop: 1 }}>
-            카카오·인스타 주문 메시지를 그대로 붙여넣으면 AI가 자동 파싱
-          </div>
+        <span style={{ fontSize: 24 }}>✨</span>
+        <div style={{ textAlign: "left", flex: 1 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "#4f46e5" }}>복붙 마법사로 주문 등록</div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>카카오·인스타 메시지 → AI 자동 정리</div>
         </div>
-        <span style={{ marginLeft: "auto", fontSize: 18 }}>+</span>
+        <span style={{ fontSize: 22, color: "#4f46e5", fontWeight: 300 }}>+</span>
       </button>
     );
   }
 
+  /* ── 펼친 상태 ── */
   return (
-    <div
-      className="animate-slideUp"
-      style={{
-        background: "rgba(255,255,255,0.9)",
-        backdropFilter: "blur(20px)",
-        border: "1px solid var(--border)",
-        borderRadius: 16,
-        overflow: "hidden",
-        boxShadow: "var(--shadow-md)",
-      }}
-    >
+    <div className="animate-slideUp" style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 20, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.08)" }}>
       {/* Header */}
-      <div
-        style={{
-          padding: "16px 20px",
-          borderBottom: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          background: "linear-gradient(135deg, rgba(0,122,255,0.06), rgba(0,122,255,0.02))",
-        }}
-      >
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(135deg, rgba(79,70,229,0.06), transparent)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 20 }}>✨</span>
+          <span style={{ fontSize: 22 }}>✨</span>
           <div>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>복붙 마법사</div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>주문 텍스트 자동 파싱 (Gemini AI)</div>
+            <div style={{ fontWeight: 800, fontSize: 15, color: "#1e1b4b" }}>복붙 마법사</div>
+            <div style={{ fontSize: 11, color: "#94a3b8" }}>AI가 주문을 자동으로 정리해요</div>
           </div>
         </div>
-        <button
-          className="btn btn-ghost"
-          onClick={() => {
-            setIsExpanded(false);
-            setText("");
-            setParsedResult(null);
-          }}
-          style={{ borderRadius: 8, padding: "5px 9px" }}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+        <button onClick={resetAll} style={{ width: 32, height: 32, borderRadius: "50%", background: "#f1f5f9", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, WebkitTapHighlightColor: "transparent" } as React.CSSProperties}>
+          ✕
         </button>
       </div>
 
-      <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {/* Examples */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            예시 텍스트 (클릭하여 사용)
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {EXAMPLE_TEXTS.map((ex, i) => (
-              <button
-                key={i}
-                onClick={() => handleExampleClick(ex)}
-                style={{
-                  textAlign: "left",
-                  padding: "8px 12px",
-                  background: "rgba(0,0,0,0.04)",
-                  border: "none",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  color: "var(--text-secondary)",
-                  lineHeight: 1.5,
-                  transition: "all 0.12s",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,122,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "var(--accent)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.04)"; (e.currentTarget as HTMLElement).style.color = "var(--text-secondary)"; }}
-              >
-                <span style={{ marginRight: 6 }}>
-                  {SOURCE_CONFIG[i === 0 ? "kakao" : i === 1 ? "instagram" : "manual"].emoji}
-                </span>
-                {ex.length > 60 ? ex.slice(0, 60) + "..." : ex}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div style={{ padding: "16px 20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Textarea */}
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            주문 텍스트 입력
-          </div>
-          <textarea
-            className="input-field"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="카카오톡, 인스타그램 등에서 받은 주문 메시지를 그대로 붙여넣어 주세요..."
-            rows={4}
-            style={{ resize: "vertical", lineHeight: 1.6 }}
-          />
-        </div>
-
-        {/* Parsed result */}
-        {parsedResult && (
-          <div
-            className="animate-fadeIn"
-            style={{
-              padding: "14px 16px",
-              background: "rgba(52,199,89,0.06)",
-              border: "1px solid rgba(52,199,89,0.2)",
-              borderRadius: 12,
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--green)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <span>🤖</span> AI 파싱 결과 (미리보기)
+        {/* ── Step 1: 텍스트 입력 (파싱 전) ── */}
+        {!editedData && (
+          <>
+            {/* 예시 버튼 */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>예시 클릭해서 바로 사용</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {EXAMPLE_TEXTS.map((ex, i) => (
+                  <button key={i} onClick={() => { setText(ex); }}
+                    style={{ textAlign: "left", padding: "10px 14px", background: "#f8fafc", border: "1px solid rgba(0,0,0,0.05)", borderRadius: 10, cursor: "pointer", fontSize: 12, color: "#475569", lineHeight: 1.5, WebkitTapHighlightColor: "transparent" } as React.CSSProperties}>
+                    <span style={{ marginRight: 6 }}>{SOURCE_CONFIG[i === 0 ? "kakao" : i === 1 ? "instagram" : "manual"].emoji}</span>
+                    {ex.length > 65 ? ex.slice(0, 65) + "..." : ex}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {Object.entries(parsedResult).map(([k, v]) => (
-                <div key={k} style={{ display: "flex", gap: 10, fontSize: 13 }}>
-                  <span style={{ color: "var(--text-tertiary)", width: 72, flexShrink: 0 }}>{k}</span>
-                  <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{v}</span>
+
+            {/* 텍스트 입력 */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>주문 텍스트 입력</div>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="카카오·인스타 주문 메시지를 그대로 붙여넣어 주세요..."
+                rows={4}
+                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", background: "#fafafa", color: "#1e293b" }}
+              />
+            </div>
+
+            {/* 주문서 자동 정리 버튼 */}
+            <button onClick={handleParse} disabled={isParsing || !text.trim()}
+              style={{
+                width: "100%", height: 56,
+                background: isParsing || !text.trim() ? "#c7d2fe" : "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                color: "#fff", border: "none", borderRadius: 14,
+                fontSize: 16, fontWeight: 700,
+                cursor: isParsing || !text.trim() ? "default" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                transition: "background 0.15s",
+                WebkitTapHighlightColor: "transparent",
+              } as React.CSSProperties}
+            >
+              {isParsing
+                ? <><div style={{ width: 18, height: 18, border: "2.5px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />AI 분석 중...</>
+                : <>✨ 주문서 자동 정리</>}
+            </button>
+          </>
+        )}
+
+        {/* ── Step 2: 카드형 편집기 (파싱 후) ── */}
+        {editedData && (
+          <div className="animate-fadeIn">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#059669", display: "flex", alignItems: "center", gap: 6 }}>
+                ✅ 정리된 내용 <span style={{ fontSize: 12, fontWeight: 500, color: "#94a3b8" }}>(수정 가능)</span>
+              </div>
+              <button onClick={() => setEditedData(null)}
+                style={{ fontSize: 12, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", padding: "4px 8px", WebkitTapHighlightColor: "transparent" } as React.CSSProperties}>
+                ← 다시 입력
+              </button>
+            </div>
+
+            {/* 편집 카드 */}
+            <div style={{ background: "#f8fafc", borderRadius: 16, border: "1.5px solid rgba(5,150,105,0.15)", overflow: "hidden" }}>
+              {([
+                { label: "👤 고객명", key: "customerName", type: "text", inputMode: "text", placeholder: "이름 입력" },
+                { label: "📦 상품명", key: "productName", type: "text", inputMode: "text", placeholder: "상품명 입력" },
+                { label: "📅 픽업일시", key: "pickupDate", type: "datetime-local", inputMode: "text", placeholder: "" },
+                { label: "📞 연락처", key: "phone", type: "tel", inputMode: "tel", placeholder: "010-0000-0000" },
+                { label: "💰 금액(원)", key: "amount", type: "text", inputMode: "numeric", placeholder: "0" },
+                { label: "📝 메모", key: "memo", type: "text", inputMode: "text", placeholder: "특이사항" },
+              ] as const).map((field, idx, arr) => (
+                <div key={field.key} style={{ display: "flex", alignItems: "center", borderBottom: idx < arr.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
+                  <div style={{ width: 88, padding: "13px 14px", fontSize: 12, fontWeight: 600, color: "#64748b", flexShrink: 0, whiteSpace: "nowrap" }}>
+                    {field.label}
+                  </div>
+                  <input
+                    type={field.type}
+                    inputMode={field.inputMode as any}
+                    value={(editedData as any)[field.key]}
+                    onChange={(e) => setEditedData(prev => prev ? { ...prev, [field.key]: e.target.value } : prev)}
+                    placeholder={field.placeholder}
+                    style={{ flex: 1, padding: "13px 14px 13px 4px", fontSize: 15, fontWeight: 600, color: "#1e293b", border: "none", outline: "none", background: "transparent", fontFamily: "inherit", minWidth: 0 }}
+                  />
                 </div>
               ))}
             </div>
+
+            {/* 이대로 주문 등록하기 */}
+            <button
+              onClick={handleSaveClick}
+              disabled={isSaving}
+              style={{
+                width: "100%", height: 62,
+                marginTop: 16,
+                background: isSaving ? "#94a3b8" : "linear-gradient(135deg, #059669, #10b981)",
+                color: "#fff", border: "none", borderRadius: 16,
+                fontSize: 17, fontWeight: 800,
+                cursor: isSaving ? "default" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                boxShadow: isSaving ? "none" : "0 4px 20px rgba(5,150,105,0.35)",
+                WebkitTapHighlightColor: "transparent",
+                transition: "all 0.15s",
+              } as React.CSSProperties}
+            >
+              {isSaving
+                ? <><div style={{ width: 18, height: 18, border: "2.5px solid rgba(255,255,255,0.35)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />등록 중...</>
+                : <>✅ 이대로 주문 등록하기</>}
+            </button>
           </div>
         )}
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-primary"
-            onClick={handleParse}
-            disabled={isParsing}
-            style={{
-              flex: 1,
-              opacity: isParsing ? 0.7 : 1,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {isParsing ? (
-              <>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: 14,
-                    height: 14,
-                    border: "2px solid rgba(255,255,255,0.4)",
-                    borderTopColor: "#fff",
-                    borderRadius: "50%",
-                    animation: "spin 0.6s linear infinite",
-                  }}
-                />
-                AI 분석 중...
-              </>
-            ) : (
-              <>✨ AI로 파싱하기</>
-            )}
-          </button>
-          {parsedResult && (
-            <button
-              className="btn"
-              disabled={isSaving}
-              style={{ background: "var(--green)", color: "#fff", opacity: isSaving ? 0.7 : 1 }}
-              onClick={handleSaveClick}
-            >
-              {isSaving ? "저장 중..." : "장부에 저장"}
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* 중복 감지 모달 */}
       {showDuplicateModal && (
         <DuplicateCheckModal
           existingOrders={existingOrders}
@@ -377,9 +347,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
         />
       )}
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

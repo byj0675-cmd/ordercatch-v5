@@ -283,7 +283,10 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
           borderRadius: "24px 24px 0 0",
           boxShadow: "0 -8px 40px rgba(0,0,0,0.18)",
           animation: "slideUp 0.28s cubic-bezier(0.32, 0.72, 0, 1)",
-          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: "92dvh",
+          overflow: "hidden",
         }}
       >
         {/* Handle bar */}
@@ -340,9 +343,10 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
           </div>
         </div>
 
-        {/* Form body */}
+        {/* Form body — scrollable */}
         <div style={{
-          padding: "20px 24px 40px",
+          flex: 1, overflowY: "auto",
+          padding: "20px 24px 8px",
           maxWidth: 600, margin: "0 auto", width: "100%",
           display: "flex", flexDirection: "column", gap: 16,
           boxSizing: "border-box",
@@ -551,21 +555,34 @@ export default function ManualOrderSheet({ storeId, onClose, onSaved }: ManualOr
             </>
           )}
 
+        </div>
+
+        {/* ── Sticky footer: save button ── */}
+        <div style={{
+          flexShrink: 0,
+          padding: "14px 24px",
+          paddingBottom: "max(14px, env(safe-area-inset-bottom))",
+          borderTop: "1px solid rgba(0,0,0,0.06)",
+          background: "#fff",
+          maxWidth: 600, margin: "0 auto", width: "100%",
+          boxSizing: "border-box",
+        }}>
           <button
             onClick={handleSave}
             disabled={!canSave}
             style={{
-              background: mode === "personal" ? "#6B7280" : updateOrderId ? "#007aff" : "#111827",
-              color: "#fff",
-              border: "none", borderRadius: 14,
-              padding: "16px", fontSize: 16, fontWeight: 700,
+              width: "100%", height: 62,
+              background: !canSave ? "#e2e8f0" : mode === "personal" ? "linear-gradient(135deg, #475569, #64748b)" : updateOrderId ? "linear-gradient(135deg, #2563eb, #1d4ed8)" : "linear-gradient(135deg, #111827, #374151)",
+              color: canSave ? "#fff" : "#94a3b8",
+              border: "none", borderRadius: 16,
+              fontSize: 17, fontWeight: 800,
               cursor: canSave ? "pointer" : "not-allowed",
-              opacity: canSave ? 1 : 0.45,
-              transition: "opacity 0.15s, background 0.15s",
-              marginTop: 4,
-            }}
+              transition: "all 0.15s",
+              boxShadow: canSave ? "0 4px 16px rgba(0,0,0,0.2)" : "none",
+              WebkitTapHighlightColor: "transparent",
+            } as React.CSSProperties}
           >
-            {saving ? "저장 중..." : uploadingImage ? "이미지 업로드 중..." : mode === "personal" ? "일정 등록하기" : updateOrderId ? "주문 수정하기" : "주문 등록하기"}
+            {saving ? "저장 중..." : uploadingImage ? "📤 이미지 업로드 중..." : mode === "personal" ? "📅 일정 등록하기" : updateOrderId ? "✏️ 주문 수정하기" : "✅ 주문 등록하기"}
           </button>
         </div>
       </div>

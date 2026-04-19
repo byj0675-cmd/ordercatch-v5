@@ -556,6 +556,23 @@ html {
   }
 }
 
+/* ── Mobile bottom nav ── */
+.mobile-bottom-nav {
+  display: flex;
+}
+@media (min-width: 1100px) {
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+  /* No bottom padding needed on PC */
+}
+@media (max-width: 1099px) {
+  /* Push content above the nav bar */
+  .main-pad {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  }
+}
+
 /* ── Day Print Section ── */
 #day-print-section {
   display: none;

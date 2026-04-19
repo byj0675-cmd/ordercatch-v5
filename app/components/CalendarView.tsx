@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 import { Order, STATUS_CONFIG } from "../lib/mockData";
+import { showToast } from "./Toast";
 
 // ── 날짜 유틸 ──────────────────────────────────────────
 function isSameDay(a: Date, b: Date) {
@@ -74,13 +75,70 @@ function OrderCard({ order, onClick, onImageUpload, onStatusChange }: {
   const inputId = `img-${order.id}`;
   const isPersonal = isPersonalEvent(order);
 
+  // 스와이프 상태
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const didSwipe = useRef(false);
+  const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    didSwipe.current = false;
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
+    if (Math.abs(dx) > 70 && Math.abs(dx) > dy * 1.5 && !isPersonal) {
+      didSwipe.current = true;
+      setSwipeHint(null);
+      if (dx < 0 && onStatusChange && order.status !== "완료") {
+        onStatusChange(order.id, "완료");
+        showToast("✅ 완료 처리됐습니다", "success");
+      } else if (dx > 0 && order.phone) {
+        window.location.href = `tel:${order.phone.replace(/[^0-9+]/g, "")}`;
+      }
+    } else {
+      setSwipeHint(null);
+    }
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPersonal) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = Math.abs(e.touches[0].clientY - touchStartY.current);
+    if (Math.abs(dx) > 20 && Math.abs(dx) > dy) {
+      setSwipeHint(dx < 0 ? "left" : "right");
+    } else {
+      setSwipeHint(null);
+    }
+  };
+
+  const handleClick = () => {
+    if (didSwipe.current) { didSwipe.current = false; return; }
+    onClick();
+  };
+
   // 퀵 상태 변경 대상 (현재 상태 제외, 최대 2개)
   const quickStatuses = (["제작중", "픽업대기", "완료"] as Order["status"][]).filter(s => s !== order.status).slice(0, 2);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 18 }}>
+      {/* Swipe hint overlays */}
+      {swipeHint === "left" && !isPersonal && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(5,150,105,0.12)", borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 20, zIndex: 1, pointerEvents: "none" }}>
+          <span style={{ fontSize: 28 }}>✅</span>
+        </div>
+      )}
+      {swipeHint === "right" && !isPersonal && order.phone && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(37,99,235,0.10)", borderRadius: 18, display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: 20, zIndex: 1, pointerEvents: "none" }}>
+          <span style={{ fontSize: 28 }}>📞</span>
+        </div>
+      )}
       <button
-        onClick={onClick}
+        onClick={handleClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className="order-card-btn"
         style={{
           width: "100%", textAlign: "left",

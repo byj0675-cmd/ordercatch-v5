@@ -494,6 +494,56 @@ export default function Dashboard() {
 
       <FAB onAddOrder={() => setShowManualSheet(true)} onPrint={handlePrint} />
 
+      {/* ── 모바일 하단 내비게이션 바 ── */}
+      {/* ── 모바일 하단 내비게이션 바 ── */}
+      <nav style={{
+        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
+        background: "rgba(255,255,255,0.97)",
+        backdropFilter: "blur(20px)",
+        borderTop: "1px solid rgba(0,0,0,0.07)",
+        display: "flex",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }} className="mobile-bottom-nav">
+        {(["calendar", "list"] as ViewMode[]).map((m) => (
+          <button
+            key={m}
+            onClick={() => setViewMode(m)}
+            style={{
+              flex: 1, position: "relative",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              gap: 3, padding: "10px 0 8px",
+              background: "none", border: "none", cursor: "pointer",
+              color: viewMode === m ? "#4f46e5" : "#94a3b8",
+              WebkitTapHighlightColor: "transparent",
+              transition: "color 0.15s", minHeight: 56,
+            } as React.CSSProperties}
+          >
+            {viewMode === m && (
+              <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 28, height: 3, borderRadius: 99, background: "#4f46e5" }} />
+            )}
+            <span style={{ fontSize: 22 }}>{m === "calendar" ? "📅" : "📋"}</span>
+            <span style={{ fontSize: 11, fontWeight: viewMode === m ? 700 : 500 }}>
+              {m === "calendar" ? "캘린더" : "목록"}
+            </span>
+          </button>
+        ))}
+        <button
+          onClick={() => setShowManualSheet(true)}
+          style={{
+            flex: 1, position: "relative",
+            display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+            gap: 3, padding: "10px 0 8px",
+            background: "none", border: "none", cursor: "pointer",
+            color: "#4f46e5", WebkitTapHighlightColor: "transparent", minHeight: 56,
+          } as React.CSSProperties}
+        >
+          <span style={{ fontSize: 22 }}>✏️</span>
+          <span style={{ fontSize: 11, fontWeight: 600 }}>주문등록</span>
+        </button>
+      </nav>
+
       {/* ── Day Drawer ── */}
       {selectedDay && (
         <DayDrawer
