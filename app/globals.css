@@ -1,35 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #f5f5f7;
-  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-primary: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.9);
   --bg-card-solid: #ffffff;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.15);
-  --text-primary: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #aeaeb2;
-  --accent: #007aff;
-  --accent-hover: #0066d6;
-  --accent-soft: rgba(0, 122, 255, 0.1);
-  --green: #34c759;
-  --green-soft: rgba(52, 199, 89, 0.12);
-  --orange: #ff9500;
-  --orange-soft: rgba(255, 149, 0, 0.12);
-  --red: #ff3b30;
-  --red-soft: rgba(255, 59, 48, 0.12);
-  --purple: #af52de;
-  --purple-soft: rgba(175, 82, 222, 0.12);
-  --pink: #ff2d92;
-  --pink-soft: rgba(255, 45, 146, 0.12);
-  --teal: #5ac8fa;
-  --teal-soft: rgba(90, 200, 250, 0.12);
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
-  --shadow-lg: 0 20px 40px rgba(0,0,0,0.12), 0 4px 8px rgba(0,0,0,0.06);
+  --border: rgba(0, 0, 0, 0.05);
+  --border-strong: rgba(0, 0, 0, 0.1);
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: rgba(79, 70, 229, 0.08);
+  --green: #10b981;
+  --green-soft: rgba(16, 185, 129, 0.12);
+  --orange: #f59e0b;
+  --orange-soft: rgba(245, 158, 11, 0.12);
+  --red: #ef4444;
+  --red-soft: rgba(239, 68, 68, 0.12);
+  --purple: #8b5cf6;
+  --purple-soft: rgba(139, 92, 246, 0.12);
+  --pink: #ec4899;
+  --pink-soft: rgba(236, 72, 153, 0.12);
+  --teal: #14b8a6;
+  --teal-soft: rgba(20, 184, 166, 0.12);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
   --radius-sm: 10px;
-  --radius-md: 16px;
-  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
   --radius-xl: 24px;
 }
 
@@ -44,6 +44,7 @@
   box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -286,7 +287,7 @@ html {
 
 /* Mobile page padding */
 .main-pad {
-  padding: 16px 14px 48px;
+  padding: 12px 10px 48px;
   max-width: 1400px;
   margin: 0 auto;
 }

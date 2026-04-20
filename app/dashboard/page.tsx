@@ -16,8 +16,8 @@ import SettingsModal from "../components/SettingsModal";
 import PasteBoard from "../components/PasteBoard";
 import ManualOrderSheet from "../components/ManualOrderSheet";
 import FAB from "../components/FAB";
-import DayDrawer from "../components/DayDrawer";
-import VerticalTimeline from "../components/VerticalTimeline";
+import { DashboardSkeleton } from "../components/SkeletonUI";
+import OrderCard from "../components/OrderCard";
 import { useStoreProvider } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
@@ -45,7 +45,7 @@ export default function Dashboard() {
   const [showManualSheet, setShowManualSheet] = useState(false);
   const [selectedStoreId] = useState<string>("all");
   const [, setIsFetching] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isPasting, setIsPasting] = useState(false);
 
@@ -63,7 +63,6 @@ export default function Dashboard() {
       window.location.replace(`/auth/callback?code=${code}`);
       return;
     }
-    setMounted(true);
     // 1회만 표시되도록 단순 타이머 처리
     const timer = setTimeout(() => {
       showToast("우측 상단 ⚙️설정에서 내 매장 고유 링크를 확인하세요!", "info", "✨");
@@ -280,10 +279,8 @@ export default function Dashboard() {
       showToast("주문이 삭제되었습니다.", "success");
     } catch (err) {
       console.error("Delete order error:", err);
-      showToast("주문 삭제에 실패했습니다.", "error");
     }
   };
-
 
   const handleLogout = async () => {
     try {
@@ -306,35 +303,8 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  // 로딩 중 — 스켈레톤 화면
   if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", background: "var(--bg-primary)", overflow: "hidden" }}>
-        {/* Header skeleton */}
-        <div style={{ height: 58, background: "rgba(245,245,247,0.85)", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", padding: "0 24px", gap: 16 }}>
-          <div className="skeleton" style={{ width: 110, height: 24, borderRadius: 8 }} />
-          <div style={{ flex: 1 }} />
-          <div className="skeleton" style={{ width: 60, height: 32, borderRadius: 10 }} />
-          <div className="skeleton" style={{ width: 72, height: 32, borderRadius: 10 }} />
-        </div>
-        {/* Filter pills skeleton */}
-        <div style={{ padding: "8px 16px", display: "flex", gap: 8, borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-          {[90, 80, 72, 85, 68, 62].map((w, i) => (
-            <div key={i} className="skeleton" style={{ width: w, height: 36, borderRadius: 20, flexShrink: 0 }} />
-          ))}
-        </div>
-        {/* Body skeleton */}
-        <div style={{ padding: "16px 14px", maxWidth: 1400, margin: "0 auto" }}>
-          <div className="skeleton" style={{ height: 68, borderRadius: 16, marginBottom: 14 }} />
-          <div className="skeleton" style={{ height: 38, borderRadius: 12, marginBottom: 14 }} />
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div className="skeleton" style={{ width: 100, height: 22, borderRadius: 8 }} />
-            <div className="skeleton" style={{ width: 140, height: 34, borderRadius: 10 }} />
-          </div>
-          <div className="skeleton" style={{ height: 480, borderRadius: 20 }} />
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   const handlePrint = () => window.print();
@@ -343,75 +313,42 @@ export default function Dashboard() {
     <>
       <ToastContainer />
 
-      <div id="dashboard-main" style={{ minHeight: "100vh", background: "var(--bg-primary)" }}>
-        <header
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 40,
-            background: "rgba(245,245,247,0.85)",
-            backdropFilter: "blur(20px)",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
-          <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px", height: 58, display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              <Image src="/logo.png" alt="OrderCatch Logo" height={26} width={120} style={{ height: 26, width: "auto" }} priority />
-            </div>
-            <div style={{ flex: 1 }}></div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button className="btn btn-ghost" onClick={handleLogout} style={{ borderRadius: 10, fontSize: 13, padding: "6px 12px", color: "var(--text-secondary)" }}>로그아웃</button>
-              <button id="settings-btn" className="btn btn-ghost" onClick={() => setShowSettings(true)} style={{ borderRadius: 10, fontSize: 13, padding: "6px 12px", background: "rgba(0,0,0,0.04)" }}>⚙️ 설정</button>
-            </div>
-          </div>
+      <div id="dashboard-main" className="min-h-screen bg-slate-50">
+        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100 h-16 flex items-center px-4 md:px-8">
+           <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">O</div>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight desktop-only">OrderCatch</h1>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                 <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors">
+                    <span className="text-xl">⚙️</span>
+                 </button>
+                 <button onClick={handleLogout} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+                    로그아웃
+                 </button>
+              </div>
+           </div>
         </header>
 
-        {/* ── Sticky Filter Pills ── */}
-        <div
-          className="sticky-filter-pills"
-          style={{ position: "sticky", top: 58, zIndex: 35, background: "rgba(248,250,252,0.92)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.05)" }}
-          onTouchStart={(e) => { (e.currentTarget as any)._tx = e.touches[0].clientX; }}
-          onTouchEnd={(e) => {
-            const startX = (e.currentTarget as any)._tx;
-            if (startX == null) return;
-            const dx = e.changedTouches[0].clientX - startX;
-            if (Math.abs(dx) < 50) return;
-            const keys = SUMMARY_CARDS.map(c => c.key);
-            const idx = keys.indexOf(activeFilter);
-            if (dx < 0 && idx < keys.length - 1) setActiveFilter(keys[idx + 1]);
-            else if (dx > 0 && idx > 0) setActiveFilter(keys[idx - 1]);
-          }}
-        >
-          <div style={{ maxWidth: 1400, margin: "0 auto", padding: "6px 12px", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
-            {SUMMARY_CARDS.map((card) => {
-              const isActive = activeFilter === card.key;
-              const count = mounted ? summaryData[card.key] : 0;
-              return (
-                <button
-                  key={card.key}
-                  onClick={() => setActiveFilter(card.key)}
-                  style={{
-                    minHeight: 44, padding: "0 14px", borderRadius: 100, border: "none",
-                    cursor: "pointer", fontSize: 13, fontWeight: 700,
-                    whiteSpace: "nowrap", flexShrink: 0,
-                    background: isActive ? "#fff" : "transparent",
-                    color: isActive ? "#4f46e5" : "#64748b",
-                    boxShadow: isActive ? "0 2px 12px rgba(0,0,0,0.10)" : "none",
-                    transition: "all 0.2s",
-                    WebkitTapHighlightColor: "transparent",
-                  } as React.CSSProperties}
-                >
-                  {card.label}{count > 0 ? ` ${count}` : ""}
-                </button>
-              );
-            })}
+        <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {SUMMARY_CARDS.slice(1, 5).map(card => (
+              <button 
+                key={card.key}
+                onClick={() => setActiveFilter(card.key)}
+                className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
+              >
+                <div className="text-2xl mb-1">{card.icon}</div>
+                <div className="text-sm font-bold text-slate-400">{card.label}</div>
+                <div className="text-2xl font-black text-slate-900">{summaryData[card.key]}</div>
+              </button>
+            ))}
           </div>
-        </div>
 
-        <main className="main-pad">
-          {/* ── Paste Board (Wizard) ── */}
           {profile?.id && mounted && (
-            <div id="paste-board-wizard" style={{ marginBottom: 20 }}>
+            <div className="mb-8">
               <PasteBoard
                 onParsed={() => fetchOrders(profile.id)}
                 storeId={profile.id}
@@ -419,59 +356,95 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="dashboard-grid">
-            {/* ── Main content column ── */}
-            <div>
-              {/* 이미지 드래그/붙여넣기 힌트 */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 12, padding: "10px 16px", background: "rgba(79,70,229,0.04)", border: "1.5px dashed rgba(79,70,229,0.18)", borderRadius: 12 }}>
-                <span style={{ fontSize: 16 }}>📷</span>
-                <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>이미지를 복사해서 붙여넣거나, 각 주문 카드의 <strong style={{ color: "#4f46e5" }}>사진 추가</strong> 버튼을 눌러 첨부하세요</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>주문 내역 <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>{filteredOrders.length}건</span></div>
-                <div style={{ display: "flex", gap: 2, background: "rgba(0,0,0,0.07)", padding: 3, borderRadius: 10 }}>
-                  {(["calendar", "list"] as ViewMode[]).map((m) => (
-                    <button key={m} onClick={() => setViewMode(m)} style={{ padding: "5px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: viewMode === m ? "#fff" : "transparent", color: viewMode === m ? "var(--text-primary)" : "var(--text-secondary)", boxShadow: viewMode === m ? "var(--shadow-sm)" : "none", transition: "all 0.15s" }}>
-                      {m === "calendar" ? "📅 캘린더" : "📋 목록"}
+          <div className="grid grid-cols-12 gap-6 pb-24 md:pb-0">
+            <div className="col-span-12 lg:col-span-8">
+              <div className="mb-6 flex items-center justify-between">
+                 <div className="flex items-center gap-4">
+                    <h2 className="text-xl font-black text-slate-900 tracking-tight">주문 관리</h2>
+                    <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
+                       <button onClick={() => setViewMode("calendar")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "calendar" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>캘린더</button>
+                       <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "list" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>목록</button>
+                    </div>
+                 </div>
+                 
+                 <div className="flex gap-2">
+                    <button onClick={() => setShowManualSheet(true)} className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all">
+                       + 주문 등록
                     </button>
-                  ))}
-                </div>
+                 </div>
               </div>
 
-              <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20 }}>
-                {viewMode === "calendar" ? (
-                  filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <CalendarView orders={filteredOrders} onOrderClick={setSelectedOrder} onDayClick={(date) => setSelectedDay(date)} selectedDay={selectedDay} onImageUpload={handleImageUpload} onStatusChange={handleStatusChange} />
-                ) : (
-                  filteredOrders.length === 0 ? <EmptyState filter={activeFilter} onOpenSettings={() => setShowSettings(true)} /> : <ListView orders={filteredOrders} onOrderClick={setSelectedOrder} formatPickup={formatPickup} profile={profile} />
-                )}
-              </div>
+              {viewMode === "calendar" ? (
+                <CalendarView 
+                  orders={orders} 
+                  onOrderClick={setSelectedOrder} 
+                  onDayClick={setSelectedDay} 
+                  selectedDay={selectedDay || new Date()} 
+                  onStatusChange={handleStatusChange} 
+                />
+              ) : (
+                <ListView 
+                  orders={filteredOrders} 
+                  onOrderClick={setSelectedOrder} 
+                  formatPickup={formatPickup} 
+                  profile={profile} 
+                />
+              )}
             </div>
 
-            {/* ── PC Sidebar: 30-day Timeline ── */}
-            <aside className="dashboard-sidebar">
-              <div className="glass-card" style={{ overflow: "hidden", borderRadius: 20, height: "100%", display: "flex", flexDirection: "column" }}>
-                {mounted && (
-                  <VerticalTimeline
-                    orders={orders}
-                    onOrderClick={setSelectedOrder}
-                    onAddOrder={profile?.id ? () => setShowManualSheet(true) : undefined}
-                    onStatusChange={handleStatusChange}
-                  />
-                )}
-                {!mounted && (
-                  <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
-                    <div className="skeleton" style={{ height: 28, width: 140, borderRadius: 8 }} />
-                    <div className="skeleton" style={{ height: 70, borderRadius: 12 }} />
-                    {[...Array(5)].map((_, i) => (
-                      <div key={i} className="skeleton" style={{ height: 56, borderRadius: 10 }} />
-                    ))}
+            <aside className="hidden lg:block lg:col-span-4 sticky top-28 h-[calc(100vh-140px)]">
+               <div className="h-full bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col">
+                  <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+                     <div>
+                        <h3 className="text-lg font-black text-slate-900 leading-tight">
+                           {selectedDay ? formatDate(selectedDay) : "오늘"}의 주문
+                        </h3>
+                        <p className="text-sm font-bold text-slate-400 mt-0.5">상세 목록</p>
+                     </div>
+                     <button onClick={handlePrint} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400">🖨️</button>
                   </div>
-                )}
-              </div>
+                  
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
+                     {(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).length === 0 ? (
+                       <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
+                          <div className="text-4xl mb-4">🌙</div>
+                          <p className="text-sm font-bold text-slate-900">등록된 주문이 없습니다</p>
+                          <p className="text-xs font-bold text-slate-400 mt-1">여유로운 하루를 즐기거나<br/>새로운 주문을 등록해보세요!</p>
+                       </div>
+                     ) : (
+                       (selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).map(o => (
+                         <OrderCard key={o.id} order={o} onClick={() => setSelectedOrder(o)} onStatusChange={handleStatusChange} />
+                       ))
+                     )}
+                  </div>
+                  
+                  <div className="p-6 bg-slate-50/50 border-t border-slate-50">
+                     <button onClick={() => setShowManualSheet(true)} className="w-full py-4 bg-white border-2 border-indigo-100 text-indigo-600 font-black rounded-2xl hover:bg-indigo-50 transition-all text-sm">
+                        + 새로운 주문 바로 등록
+                     </button>
+                  </div>
+               </div>
             </aside>
           </div>
         </main>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-100 lg:hidden px-6 pt-2 pb-safe">
+         <div className="flex justify-between items-center max-w-sm mx-auto">
+            <button onClick={() => setViewMode("calendar")} className={`flex flex-col items-center gap-1 py-2 ${viewMode === "calendar" ? "text-indigo-600" : "text-slate-400"}`}>
+               <span className="text-2xl">📅</span>
+               <span className="text-[10px] font-black uppercase tracking-widest">캘린더</span>
+            </button>
+            <button onClick={() => setShowManualSheet(true)} className="flex flex-col items-center -mt-8">
+               <div className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-200 border-4 border-white transform hover:scale-110 active:scale-95 transition-all">
+                  <span className="text-2xl">+</span>
+               </div>
+            </button>
+            <button onClick={() => setViewMode("list")} className={`flex flex-col items-center gap-1 py-2 ${viewMode === "list" ? "text-indigo-600" : "text-slate-400"}`}>
+               <span className="text-2xl">📋</span>
+               <span className="text-[10px] font-black uppercase tracking-widest">목록</span>
+            </button>
+         </div>
       </div>
 
       {selectedOrder && (
@@ -492,262 +465,127 @@ export default function Dashboard() {
         />
       )}
 
-      <FAB onAddOrder={() => setShowManualSheet(true)} onPrint={handlePrint} />
-
-      {/* ── 모바일 하단 내비게이션 바 ── */}
-      {/* ── 모바일 하단 내비게이션 바 ── */}
-      <nav style={{
-        position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50,
-        background: "rgba(255,255,255,0.97)",
-        backdropFilter: "blur(20px)",
-        borderTop: "1px solid rgba(0,0,0,0.07)",
-        display: "flex",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }} className="mobile-bottom-nav">
-        {(["calendar", "list"] as ViewMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => setViewMode(m)}
-            style={{
-              flex: 1, position: "relative",
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              gap: 3, padding: "10px 0 8px",
-              background: "none", border: "none", cursor: "pointer",
-              color: viewMode === m ? "#4f46e5" : "#94a3b8",
-              WebkitTapHighlightColor: "transparent",
-              transition: "color 0.15s", minHeight: 56,
-            } as React.CSSProperties}
-          >
-            {viewMode === m && (
-              <div style={{ position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)", width: 28, height: 3, borderRadius: 99, background: "#4f46e5" }} />
-            )}
-            <span style={{ fontSize: 22 }}>{m === "calendar" ? "📅" : "📋"}</span>
-            <span style={{ fontSize: 11, fontWeight: viewMode === m ? 700 : 500 }}>
-              {m === "calendar" ? "캘린더" : "목록"}
-            </span>
-          </button>
-        ))}
-        <button
-          onClick={() => setShowManualSheet(true)}
-          style={{
-            flex: 1, position: "relative",
-            display: "flex", flexDirection: "column",
-            alignItems: "center", justifyContent: "center",
-            gap: 3, padding: "10px 0 8px",
-            background: "none", border: "none", cursor: "pointer",
-            color: "#4f46e5", WebkitTapHighlightColor: "transparent", minHeight: 56,
-          } as React.CSSProperties}
-        >
-          <span style={{ fontSize: 22 }}>✏️</span>
-          <span style={{ fontSize: 11, fontWeight: 600 }}>주문등록</span>
-        </button>
-      </nav>
-
-      {/* ── Day Drawer ── */}
-      {selectedDay && (
-        <DayDrawer
-          date={selectedDay}
-          orders={orders.filter((o) => {
-            const d = new Date(o.pickupDate);
-            return (
-              d.getFullYear() === selectedDay.getFullYear() &&
-              d.getMonth() === selectedDay.getMonth() &&
-              d.getDate() === selectedDay.getDate()
-            );
-          })}
-          onClose={() => setSelectedDay(null)}
-          onOrderClick={(order) => {
-            setSelectedOrder(order);
-            setSelectedDay(null);
-          }}
-          onStatusChange={handleStatusChange}
-          onDelete={handleDeleteOrder}
-        />
-      )}
-
-      {/* ── 프린트 전용 섹션 (화면에는 숨김, @media print 에서만 표시) ── */}
-      <div id="print-section">
-        <div style={{ padding: "40px 32px", color: "#000", background: "#fff" }}>
-          <div style={{ borderBottom: "3px solid #000", paddingBottom: 16, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>
-                ORDER SHEET
-              </h1>
-              <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>
-                {profile?.store_name} — 전체 주문 내역
-              </p>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <p style={{ margin: 0, fontSize: 13, color: "#666" }}>출력 일시: {new Date().toLocaleString("ko-KR")}</p>
-              <p style={{ margin: "2px 0 0", fontSize: 14, fontWeight: 700 }}>총 {todayOrders.length}건 출력됨</p>
-            </div>
-          </div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["순번", "픽업시간", "고객명", "주문 상품", "요청사항 / 메모", "결제"].map((h) => (
-                  <th key={h} style={{ padding: "12px 8px", borderBottom: "2px solid #000", textAlign: "left", fontSize: 12, fontWeight: 800, color: "#000" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {todayOrders.map((o, i) => {
-                const d = new Date(o.pickupDate);
-                const timeStr = isNaN(d.getTime()) ? "-" : `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
-                return (
-                  <tr key={o.id} style={{ borderBottom: "1px solid #ddd" }}>
-                    <td style={{ padding: "12px 8px", fontSize: 12, color: "#666" }}>{i + 1}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 800 }}>{timeStr}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 800 }}>{o.customerName}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 13, fontWeight: 600 }}>{o.productName}</td>
-                    <td style={{ padding: "12px 8px", fontSize: 12, lineHeight: 1.4, maxWidth: 250 }}>
-                      {o.options.memo || o.options.custom || <span style={{ color: "#ccc" }}>-</span>}
-                    </td>
-                    <td style={{ padding: "12px 8px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
-                      {o.amount > 0 ? `${o.amount.toLocaleString()}원` : "대기"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          
-          <div style={{ marginTop: 40, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#666" }}>
-            <span>OrderCatch 매장 관리 시스템</span>
-            <span>본 확인서는 인쇄용으로 최적화되었습니다.</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 이미지 붙여넣기 업로드 오버레이 ── */}
       {isPasting && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9998,
-          background: "rgba(79,70,229,0.12)", backdropFilter: "blur(10px)",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16,
-        }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, boxShadow: "0 8px 32px rgba(79,70,229,0.4)" }}>📎</div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: "#1e1b4b" }}>이미지 업로드 중...</div>
-          <div style={{ width: 200, height: 4, background: "rgba(79,70,229,0.15)", borderRadius: 4, overflow: "hidden" }}>
-            <div style={{ height: "100%", background: "#4f46e5", borderRadius: 4, animation: "paste-progress 1.4s ease-in-out infinite" }} />
-          </div>
-          <style>{`@keyframes paste-progress { 0%{width:0%;margin-left:0} 50%{width:65%;margin-left:0} 100%{width:0%;margin-left:100%} }`}</style>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-600/10 backdrop-blur-md">
+           <div className="p-8 bg-white rounded-3xl shadow-2xl flex flex-col items-center gap-4">
+              <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center animate-bounce shadow-xl shadow-indigo-100">
+                 <span className="text-2xl text-white">📎</span>
+              </div>
+              <p className="text-lg font-black text-slate-900">이미지 마법 부리는 중...</p>
+           </div>
         </div>
       )}
 
-      {showOnboarding && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="animate-scaleIn" style={{ background: "#fff", padding: "32px", borderRadius: "24px", width: "100%", maxWidth: "400px", boxShadow: "0 24px 48px rgba(0,0,0,0.2)", display: "flex", flexDirection: "column", gap: 20, maxHeight: "90vh", overflowY: "auto" }}>
-            <h2 style={{ margin: 0, fontSize: "20px", fontWeight: 700 }}>환영합니다! 매장 정보를 설정해 주세요 🎉</h2>
-            <p style={{ margin: 0, fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.5 }}>AI 비서가 주문서를 똑똑하게 분석할 수 있도록 정확한 정보를 선택해 주세요.</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>업종 카테고리</label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[{ id: "dessert", label: "🍬 디저트" }, { id: "nail", label: "💅 네일" }, { id: "bakery", label: "🥐 베이커리" }, { id: "flower", label: "🌸 플라워" }, { id: "restaurant", label: "🍽️ 식당" }, { id: "other", label: "✨ 기타" }].map(cat => (
-                  <button key={cat.id} onClick={() => setOnboardCategory(cat.id)} style={{ padding: "8px 14px", borderRadius: "100px", border: "1px solid", fontSize: "14px", borderColor: onboardCategory === cat.id ? "var(--accent)" : "var(--border)", background: onboardCategory === cat.id ? "var(--accent-soft)" : "#fff", color: onboardCategory === cat.id ? "var(--accent)" : "var(--text-secondary)", fontWeight: onboardCategory === cat.id ? 700 : 500, cursor: "pointer", transition: "all 0.2s" }}>{cat.label}</button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>공식 매장 상호명</label>
-              <input type="text" placeholder="예: 아만다 떡케이크 역삼점" value={onboardName} onChange={(e) => setOnboardName(e.target.value)} style={{ padding: "14px 16px", borderRadius: "12px", border: "1px solid var(--border)", fontSize: "15px", outline: "none", width: "100%", background: "var(--bg-secondary)" }} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: "var(--text-tertiary)" }}>대표자 성함</label>
-              <input type="text" placeholder="예: 홍길동" value={onboardOwner} onChange={(e) => setOnboardOwner(e.target.value)} style={{ padding: "14px 16px", borderRadius: "12px", border: "1px solid var(--border)", fontSize: "15px", outline: "none", width: "100%", background: "var(--bg-secondary)" }} />
-            </div>
-            <button disabled={onboardLoading || !onboardName.trim() || !onboardOwner.trim()} onClick={async () => {
-                try {
-                  setOnboardLoading(true);
-                  const success = await updateStoreProfile({ store_name: onboardName.trim(), category: onboardCategory, owner_name: onboardOwner.trim() });
-                  if (success) {
-                    showToast("초기 정보 설정이 완료되었습니다! 🚀", "success");
-                    setShowOnboarding(false);
-                  } else {
-                    showToast("저장에 실패했습니다. 다시 시도해주세요.", "error");
-                  }
-                } catch (err) {
-                  showToast("저장 중 시스템 오류가 발생했습니다.", "error");
-                } finally {
-                  setOnboardLoading(false);
-                }
-              }} style={{ background: "#03C75A", color: "#fff", padding: "14px", borderRadius: "12px", fontWeight: 600, fontSize: "16px", cursor: "pointer", border: "none", marginTop: "10px", opacity: (onboardLoading || !onboardName.trim() || !onboardOwner.trim()) ? 0.6 : 1 }}>
-              {onboardLoading ? "저장 중..." : "3초 만에 시작하기"}
-            </button>
-          </div>
-        </div>
-      )}
+      {showOnboarding && <OnboardingModal profile={profile} updateProfile={updateStoreProfile} onClose={() => setShowOnboarding(false)} onSaved={() => fetchOrders(profile?.id || "")} />}
     </>
   );
 }
 
-function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Order[]; onOrderClick: (o: Order) => void; formatPickup: (s: string) => string; profile: any; }) {
+function isSameDay(d1: Date, d2: Date) {
+  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+}
+function formatDate(d: Date) {
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function OnboardingModal({ profile, updateProfile, onClose, onSaved }: any) {
+  const [name, setName] = useState("");
+  const [owner, setOwner] = useState("");
+  const [cat, setCat] = useState("dessert");
+  const [loading, setLoading] = useState(false);
+
   return (
-    <>
-      <div className="list-table-wrap">
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid var(--border)" }}>
-              {["픽업 일시", "고객명", "매장", "상품", "금액", "상태", "채널", ""].map((h) => (
-                <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((order, idx) => {
-              const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
-              const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
-              return (
-                <tr key={order.id} className="animate-fadeIn" style={{ borderBottom: idx < orders.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", transition: "background 0.12s", animationDelay: `${idx * 0.04}s` }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,0.025)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                  <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{formatPickup(order.pickupDate)}</td>
-                  <td style={{ padding: "13px 16px", fontSize: 14, color: "var(--text-primary)", fontWeight: 600 }}>{order.customerName}</td>
-                  <td style={{ padding: "13px 16px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 14 }}>🏪</span>
-                      <span style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{profile?.store_name}</span>
-                    </div>
-                  </td>
-                  <td style={{ padding: "13px 16px", fontSize: 13, color: "var(--text-secondary)", maxWidth: 200 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{order.productName}</div></td>
-                  <td style={{ padding: "13px 16px", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{order.amount.toLocaleString()}원</td>
-                  <td style={{ padding: "13px 16px" }}><span className="status-badge" style={{ background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280" }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg?.dot || "#9ca3af", display: "inline-block" }} />{cfg?.label || "상태알수없음"}</span></td>
-                  <td style={{ padding: "13px 16px" }}><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: (src?.color || "#e5e7eb") + "22", color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280"), whiteSpace: "nowrap" }}>{src?.emoji || "❓"} {src?.label || "알수없음"}</span></td>
-                  <td style={{ padding: "13px 16px" }}><button id={`order-detail-${order.id}`} className="btn" onClick={() => onOrderClick(order)} style={{ background: "rgba(0,0,0,0.06)", color: "var(--text-primary)", fontSize: 12, padding: "5px 12px", borderRadius: 8 }}>상세보기</button></td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-      <div className="list-card-wrap">
-        {orders.map((order, idx) => {
-          const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
-          const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
-          return (
-            <div key={order.id} className="order-card animate-fadeIn" style={{ animationDelay: `${idx * 0.05}s` }} onClick={() => onOrderClick(order)}>
-              <div className="order-card-accent" style={{ background: cfg?.dot || "#9ca3af" }} />
-              <div className="order-card-top" style={{ paddingLeft: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-primary)" }}>📅 {formatPickup(order.pickupDate)}</span>
-                <span className="status-badge" style={{ background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: cfg?.dot || "#9ca3af", display: "inline-block" }} />{cfg?.label || "알수없음"}</span>
-              </div>
-              <div className="order-card-middle" style={{ paddingLeft: 8 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{order.customerName}</span>
-                <span style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>{order.productName}</span>
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 1 }}>🏪 {profile?.store_name}</span>
-              </div>
-              <div className="order-card-bottom" style={{ paddingLeft: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: "var(--text-primary)" }}>{order.amount.toLocaleString()}원</span>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 5, background: (src?.color || "#e5e7eb") + "22", color: src?.color === "#FEE500" ? "#8B6914" : (src?.color || "#6b7280") }}>{src?.emoji || "❓"} {src?.label || "알수없음"}</span>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn">
+          <h2 className="text-2xl font-black text-slate-900 mb-2">환영합니다! 🎉</h2>
+          <p className="text-slate-400 font-bold text-sm mb-8 leading-relaxed">AI 비서가 주문서를 똑똑하게 분석할 수 있도록<br />매장의 기본 정보를 알려주세요.</p>
+          
+          <div className="space-y-6">
+             <div className="space-y-2">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">업종 카테고리</label>
+                <div className="grid grid-cols-3 gap-2">
+                   {[{id:"dessert", label:"糖 디저트"}, {id:"nail", label:"💅 네일"}, {id:"bakery", label:"🥐 빵"}, {id:"flower", label:"🌸 꽃"}, {id:"restaurant", label:"🍽️ 식당"}, {id:"other", label:"✨ 기타"}].map(c => (
+                     <button key={c.id} onClick={() => setCat(c.id)} className={`py-3 rounded-xl text-xs font-black transition-all ${cat === c.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-slate-50 text-slate-400"}`}>{c.label}</button>
+                   ))}
                 </div>
-                <button id={`order-detail-mobile-${order.id}`} className="btn btn-primary" onClick={(e) => { e.stopPropagation(); onOrderClick(order); }} style={{ fontSize: 13, padding: "7px 16px", borderRadius: 9, flexShrink: 0 }}>상세보기</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </>
+             </div>
+             <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">매장 이름</label>
+                <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="예: 아만다 케이크" className="w-full mt-2 p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 outline-none focus:ring-2 ring-indigo-100 transition-all" />
+             </div>
+             <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">대표자 성함</label>
+                <input type="text" value={owner} onChange={e=>setOwner(e.target.value)} placeholder="사장님 성함을 입력하세요" className="w-full mt-2 p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 outline-none focus:ring-2 ring-indigo-100 transition-all" />
+             </div>
+          </div>
+
+          <button 
+             disabled={loading || !name || !owner}
+             onClick={async () => {
+                setLoading(true);
+                const ok = await updateProfile({ store_name: name, category: cat, owner_name: owner });
+                if (ok) { showToast("매장 정보가 등록되었습니다! ✨", "success"); onSaved(); onClose(); }
+                setLoading(false);
+             }}
+             className="w-full mt-10 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+          >
+             {loading ? "매장 오픈 준비 중..." : "오더캐치 시작하기"}
+          </button>
+       </div>
+    </div>
+  );
+}
+
+function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Order[]; onOrderClick: (o: Order) => void; formatPickup: (s: string) => string; profile: any; }) {
+  if (orders.length === 0) return <EmptyState filter="all" />;
+
+  return (
+    <div className="bg-white rounded-[32px] shadow-sm border border-slate-100 overflow-hidden">
+       {/* Desktop Table View */}
+       <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left">
+             <thead>
+                <tr className="bg-slate-50/50 border-b border-slate-100">
+                   {["픽업 일시", "고객명", "주문 상품", "금액", "상태", ""].map(h => (
+                     <th key={h} className="px-6 py-4 text-[11px] font-black text-slate-400 uppercase tracking-widest">{h}</th>
+                   ))}
+                </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-50">
+                {orders.map(order => {
+                  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
+                  return (
+                    <tr key={order.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => onOrderClick(order)}>
+                       <td className="px-6 py-4">
+                          <div className="text-xs font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg inline-block">
+                             {formatPickup(order.pickupDate)}
+                          </div>
+                       </td>
+                       <td className="px-6 py-4 text-sm font-black text-slate-900">{order.customerName}</td>
+                       <td className="px-6 py-4 text-sm font-bold text-slate-600">{order.productName}</td>
+                       <td className="px-6 py-4 text-sm font-black text-slate-900">{order.amount.toLocaleString()}원</td>
+                       <td className="px-6 py-4">
+                          <span className="text-[11px] font-black px-2 py-1 rounded-full" style={{ background: cfg.bg, color: cfg.color }}>
+                             {cfg.label}
+                          </span>
+                       </td>
+                       <td className="px-6 py-4 text-right">
+                          <button className="text-indigo-600 text-xs font-black">상세보기 ›</button>
+                       </td>
+                    </tr>
+                  );
+                })}
+             </tbody>
+          </table>
+       </div>
+
+       {/* Mobile Card View */}
+       <div className="md:hidden p-4 space-y-4">
+          {orders.map(order => (
+            <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order)} />
+          ))}
+       </div>
+    </div>
   );
 }
 
