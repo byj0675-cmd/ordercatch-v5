@@ -52,76 +52,42 @@ function OrderCard({ order, onClick, onStatusChange }: {
   const imageUrl = order.options.imageUrl;
   const isPersonal = isPersonalEvent(order);
 
-  // 스와이프 상태
-  const touchStartX = useRef(0);
-  const [swipeHint, setSwipeHint] = useState<"left" | "right" | null>(null);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 100 && !isPersonal) {
-      if (dx < 0 && onStatusChange && order.status !== "완료") {
-        onStatusChange(order.id, "완료");
-        showToast("✅ 완료 처리됐습니다", "success");
-      } else if (dx > 0 && order.phone) {
-        window.location.href = `tel:${order.phone.replace(/[^0-9+]/g, "")}`;
-      }
-    }
-    setSwipeHint(null);
-  };
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (isPersonal) return;
-    const dx = e.touches[0].clientX - touchStartX.current;
-    if (dx < -30) setSwipeHint("left");
-    else if (dx > 30) setSwipeHint("right");
-    else setSwipeHint(null);
-  };
-
   return (
     <div 
-      className="relative overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-sm active:scale-[0.98] transition-all"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
+      className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-sm active:scale-[0.97] transition-all duration-300"
       onClick={onClick}
     >
-      {/* Swipe Badges */}
-      {swipeHint === "left" && (
-        <div className="absolute inset-0 bg-green-500/10 flex items-center justify-end pr-6 pointer-events-none">
-          <span className="text-2xl">✅</span>
-        </div>
-      )}
-      {swipeHint === "right" && order.phone && (
-        <div className="absolute inset-0 bg-indigo-500/10 flex items-center justify-start pl-6 pointer-events-none">
-          <span className="text-2xl">📞</span>
-        </div>
-      )}
-
-      <div className="p-4 flex gap-4">
-        {imageUrl && (
-          <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-slate-100">
-             <Image src={imageUrl} alt="" width={64} height={64} className="object-cover w-full h-full" />
+      <div className="p-5 flex gap-4">
+        {imageUrl ? (
+          <div className="w-20 h-20 rounded-3xl overflow-hidden flex-shrink-0 border border-slate-50 ring-4 ring-slate-50/50">
+             <Image src={imageUrl} alt="" width={80} height={80} className="object-cover w-full h-full" />
+          </div>
+        ) : (
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-xl flex-shrink-0">
+             {isPersonal ? "📅" : "🍰"}
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1">
-             <span className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+          <div className="flex items-center justify-between mb-1.5">
+             <span className="text-[10px] font-black tracking-widest text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full uppercase">
                 {formatTime(order.pickupDate)}
              </span>
-             <span className={`text-[11px] font-black px-2 py-0.5 rounded-full`} style={{ background: cfg.bg, color: cfg.color }}>
+             <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-tighter" style={{ background: cfg.bg, color: cfg.color }}>
                 {cfg.label}
              </span>
           </div>
-          <h3 className="text-base font-black text-slate-900 truncate">
+          <h3 className="text-lg font-black text-slate-900 leading-tight">
              {isPersonal ? order.productName : order.customerName}
           </h3>
-          {!isPersonal && <p className="text-sm font-bold text-slate-400 truncate">{order.productName}</p>}
+          {!isPersonal && <p className="text-sm font-bold text-slate-400 mt-0.5">{order.productName}</p>}
+          
           {highlight && (
-            <p className="mt-2 text-xs font-bold text-slate-600 bg-slate-50 p-2 rounded-lg line-clamp-2">
-               💬 {highlight}
-            </p>
+            <div className="mt-3 relative">
+               <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-100 rounded-full" />
+               <p className="pl-4 text-xs font-bold text-slate-500 leading-relaxed italic">
+                 "{highlight}"
+               </p>
+            </div>
           )}
         </div>
       </div>
@@ -155,71 +121,88 @@ function TimelineSection({ label, orders, onOrderClick, onStatusChange }: {
 function MobileView({ orders, onOrderClick, onStatusChange }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Calculate horizontal week date strip
   const weekDates = useMemo(() => {
     const dates = [];
-    for (let i = -3; i <= 3; i++) {
-      const d = new Date(selectedDate);
-      d.setDate(selectedDate.getDate() + i);
+    for (let i = -3; i <= 10; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
       dates.push(d);
     }
     return dates;
-  }, [selectedDate]);
+  }, []);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((o: Order) => isSameDay(new Date(o.pickupDate), selectedDate));
+    return orders
+      .filter((o: Order) => isSameDay(new Date(o.pickupDate), selectedDate))
+      .sort((a,b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
   }, [orders, selectedDate]);
 
-  const monthStr = `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월`;
-
   return (
-    <div className="flex flex-col gap-6 animate-fadeIn pb-24">
-      {/* Month & Week Strip Header */}
-      <div className="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 sticky top-0 z-10">
-        <div className="flex items-center justify-between mb-4 px-2">
-           <h2 className="text-lg font-black text-slate-900">{monthStr}</h2>
+    <div className="flex flex-col gap-0 animate-fadeIn min-h-screen bg-slate-50">
+      {/* Native-grade Sticky Header */}
+      <div className="sticky top-0 z-30 bg-slate-50/80 backdrop-blur-xl pb-4">
+        <div className="px-6 pt-8 pb-4 flex items-center justify-between">
+           <div className="flex flex-col">
+              <span className="text-xs font-black text-indigo-600 uppercase tracking-widest mb-1">Schedule</span>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                 {selectedDate.getMonth() + 1}월 {selectedDate.getDate()}일
+              </h2>
+           </div>
            <button 
              onClick={() => setSelectedDate(new Date())}
-             className="text-xs font-black text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full"
-           >오늘</button>
+             className="w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100 text-lg"
+           >📍</button>
         </div>
-        <div className="flex justify-between gap-1 overflow-x-auto no-scrollbar">
+
+        {/* Improved Week Strip */}
+        <div className="flex gap-3 overflow-x-auto no-scrollbar px-6 py-2">
            {weekDates.map((date, i) => {
              const isSelected = isSameDay(date, selectedDate);
-             const isSun = date.getDay() === 0;
-             const isSat = date.getDay() === 6;
-             const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+             const isToday = isSameDay(date, new Date());
+             const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
              return (
                <button 
                  key={i} 
                  onClick={() => setSelectedDate(date)}
-                 className={`flex-1 flex flex-col items-center py-3 rounded-2xl transition-all min-w-[48px] ${isSelected ? "bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105" : "text-slate-400"}`}
+                 className={`flex-shrink-0 w-14 h-20 flex flex-col items-center justify-center rounded-[2rem] transition-all duration-300 ${isSelected ? "bg-indigo-600 text-white shadow-xl shadow-indigo-100 scale-105" : "bg-white text-slate-400 border border-slate-100"}`}
                >
-                 <span className="text-[10px] font-black mb-1">{dayNames[date.getDay()]}</span>
-                 <span className={`text-sm font-black ${!isSelected && (isSun ? "text-red-400" : isSat ? "text-blue-400" : "")}`}>
+                 <span className={`text-[10px] font-black mb-1 uppercase tracking-tighter ${isSelected ? "text-indigo-200" : "text-slate-300"}`}>
+                    {dayNames[date.getDay()]}
+                 </span>
+                 <span className="text-base font-black">
                     {date.getDate()}
                  </span>
+                 {isToday && !isSelected && <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1" />}
                </button>
              );
            })}
         </div>
       </div>
 
-      {/* Timeline List */}
-      <div className="px-1 space-y-8">
-         <TimelineSection 
-           label={isSameDay(selectedDate, new Date()) ? "오늘 주문" : formatDate(selectedDate)} 
-           orders={filteredOrders} 
-           onOrderClick={onOrderClick}
-           onStatusChange={onStatusChange}
-         />
-         {filteredOrders.length === 0 && (
-           <div className="flex flex-col items-center justify-center py-20 bg-slate-50 rounded-[40px] border-2 border-dashed border-slate-200">
-              <span className="text-4xl mb-4">📭</span>
-              <p className="text-slate-400 font-bold">이날은 등록된 주문이 없습니다.</p>
+      {/* Vertical Agenda Timeline */}
+      <div className="relative px-6 py-8 flex flex-col gap-6">
+         {/* Vertical line through timeline */}
+         <div className="absolute left-10 top-0 bottom-0 w-[2px] bg-slate-200/50" />
+
+         {filteredOrders.length > 0 ? (
+           filteredOrders.map((o: Order) => (
+             <div key={o.id} className="relative pl-12">
+                {/* Timeline Node */}
+                <div className="absolute left-[3px] top-6 w-4 h-4 rounded-full bg-white border-4 border-indigo-600 z-10" />
+                <OrderCard order={o} onClick={() => onOrderClick(o)} onStatusChange={onStatusChange} />
+             </div>
+           ))
+         ) : (
+           <div className="flex flex-col items-center justify-center py-24 text-center opacity-30">
+              <span className="text-6xl mb-4">✨</span>
+              <p className="text-lg font-black text-slate-900">완전한 자유 시간!</p>
+              <p className="text-sm font-bold">이날은 등록된 주문이 없습니다.</p>
            </div>
          )}
       </div>
+      
+      {/* Padding for bottom bar */}
+      <div className="h-32" />
     </div>
   );
 }

@@ -158,13 +158,8 @@ function LandingContent() {
   const [isLocal, setIsLocal] = useState(false);
 
   useEffect(() => {
-    const code = searchParams.get("code");
-    if (code) { window.location.replace(`/auth/callback?code=${code}`); return; }
     const error = searchParams.get("error");
     if (error) showToast(`로그인 오류: ${decodeURIComponent(error)}`, "error");
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) router.replace("/dashboard");
-    });
   }, []);
 
   useEffect(() => {

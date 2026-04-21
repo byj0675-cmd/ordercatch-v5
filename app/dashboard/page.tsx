@@ -1,7 +1,7 @@
 "use client";
-// Force refresh for Next.js 16 Turbopack cache - 2026-04-09 13:42
 
 import { useState, useMemo, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import {
   STATUS_CONFIG,
@@ -10,17 +10,19 @@ import {
   type OrderStatus,
 } from "../lib/mockData";
 import { ToastContainer, showToast } from "../components/Toast";
-import CalendarView from "../components/CalendarView";
-import OrderDetailModal from "../components/OrderDetailModal";
-import SettingsModal from "../components/SettingsModal";
-import PasteBoard from "../components/PasteBoard";
-import ManualOrderSheet from "../components/ManualOrderSheet";
-import FAB from "../components/FAB";
-import { DashboardSkeleton } from "../components/SkeletonUI";
-import OrderCard from "../components/OrderCard";
 import { useStoreProvider } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
+
+// Dynamic Imports for Performance
+const CalendarView = dynamic(() => import("../components/CalendarView"), { ssr: false, loading: () => <DashboardSkeleton /> });
+const OrderDetailModal = dynamic(() => import("../components/OrderDetailModal"), { ssr: false });
+const SettingsModal = dynamic(() => import("../components/SettingsModal"), { ssr: false });
+const PasteBoard = dynamic(() => import("../components/PasteBoard"), { ssr: false });
+const ManualOrderSheet = dynamic(() => import("../components/ManualOrderSheet"), { ssr: false });
+const DashboardSkeleton = dynamic(() => import("../components/SkeletonUI").then(mod => mod.DashboardSkeleton), { ssr: false });
+const OrderCard = dynamic(() => import("../components/OrderCard"), { ssr: false });
+const FAB = dynamic(() => import("../components/FAB"), { ssr: false });
 
 
 type ViewMode = "calendar" | "list";
@@ -333,7 +335,7 @@ export default function Dashboard() {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             {SUMMARY_CARDS.slice(1, 5).map(card => (
               <button 
                 key={card.key}
@@ -429,20 +431,30 @@ export default function Dashboard() {
         </main>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-xl border-t border-slate-100 lg:hidden px-6 pt-2 pb-safe">
-         <div className="flex justify-between items-center max-w-sm mx-auto">
-            <button onClick={() => setViewMode("calendar")} className={`flex flex-col items-center gap-1 py-2 ${viewMode === "calendar" ? "text-indigo-600" : "text-slate-400"}`}>
-               <span className="text-2xl">📅</span>
-               <span className="text-[10px] font-black uppercase tracking-widest">캘린더</span>
+      {/* Premium Glassmorphic Bottom Bar (Mobile Only) */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp">
+         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between">
+            <button 
+              onClick={() => setViewMode("calendar")} 
+              className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "calendar" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+            >
+               <span className="text-xl">📅</span>
+               <span className="text-[10px] font-black uppercase tracking-tighter">캘린더</span>
             </button>
-            <button onClick={() => setShowManualSheet(true)} className="flex flex-col items-center -mt-8">
-               <div className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-white shadow-xl shadow-indigo-200 border-4 border-white transform hover:scale-110 active:scale-95 transition-all">
-                  <span className="text-2xl">+</span>
-               </div>
+
+            <button 
+              onClick={() => setShowManualSheet(true)} 
+              className="flex-shrink-0 w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all mx-2"
+            >
+               <span className="text-2xl font-light">+</span>
             </button>
-            <button onClick={() => setViewMode("list")} className={`flex flex-col items-center gap-1 py-2 ${viewMode === "list" ? "text-indigo-600" : "text-slate-400"}`}>
-               <span className="text-2xl">📋</span>
-               <span className="text-[10px] font-black uppercase tracking-widest">목록</span>
+
+            <button 
+              onClick={() => setViewMode("list")} 
+              className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "list" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+            >
+               <span className="text-xl">📋</span>
+               <span className="text-[10px] font-black uppercase tracking-tighter">목록</span>
             </button>
          </div>
       </div>
