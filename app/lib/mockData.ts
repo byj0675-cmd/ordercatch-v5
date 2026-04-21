@@ -26,6 +26,7 @@ export interface Order {
     couponUsed?: string;
     paymentMethod?: string;
     imageUrl?: string;
+    isPersonal?: boolean;
   };
   source: "kakao" | "instagram" | "manual" | "link";
   createdAt: string;

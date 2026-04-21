@@ -31,7 +31,7 @@ interface CalendarViewProps {
 
 // ── 개인 일정 여부 체크 ────────────────────────────────
 function isPersonalEvent(order: Order) {
-  return !!(order.options as any)?.isPersonal;
+  return !!order.options.isPersonal;
 }
 
 // ── 이벤트 스타일 ──────────────────
@@ -143,7 +143,7 @@ function TimelineSection({ label, orders, onOrderClick, onStatusChange }: {
         <span className="text-[11px] font-black text-slate-400">{orders.length}건</span>
       </div>
       <div className="space-y-3">
-        {orders.map(o => (
+        {orders.map((o: Order) => (
           <OrderCard key={o.id} order={o} onClick={() => onOrderClick(o)} onStatusChange={onStatusChange} />
         ))}
       </div>
@@ -152,7 +152,7 @@ function TimelineSection({ label, orders, onOrderClick, onStatusChange }: {
 }
 
 // ── 모바일 뷰 (Agenda/Timeline) ──────────
-function MobileView({ orders, onOrderClick, onStatusChange }: any) {
+function MobileView({ orders, onOrderClick, onStatusChange }: CalendarViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   // Calculate horizontal week date strip
@@ -167,7 +167,7 @@ function MobileView({ orders, onOrderClick, onStatusChange }: any) {
   }, [selectedDate]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDate));
+    return orders.filter((o: Order) => isSameDay(new Date(o.pickupDate), selectedDate));
   }, [orders, selectedDate]);
 
   const monthStr = `${selectedDate.getFullYear()}년 ${selectedDate.getMonth() + 1}월`;
@@ -225,7 +225,7 @@ function MobileView({ orders, onOrderClick, onStatusChange }: any) {
 }
 
 // ── 데스크톱 캘린더 (Desktop View) ──────────
-function DesktopView({ orders, onOrderClick, onDayClick, selectedDay }: any) {
+function DesktopView({ orders, onOrderClick, onDayClick, selectedDay }: CalendarViewProps) {
   const [viewDate, setViewDate] = useState(new Date());
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -239,7 +239,7 @@ function DesktopView({ orders, onOrderClick, onDayClick, selectedDay }: any) {
   while (cells.length % 7 !== 0) cells.push(null);
 
   const getDayOrders = (day: number) => {
-    return orders.filter(o => {
+    return orders.filter((o: Order) => {
       const d = new Date(o.pickupDate);
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
     });
@@ -283,7 +283,7 @@ function DesktopView({ orders, onOrderClick, onDayClick, selectedDay }: any) {
                     {day}
                   </span>
                   <div className="space-y-1">
-                    {dayOrders.slice(0, 3).map(o => {
+                    {dayOrders.slice(0, 3).map((o: Order) => {
                       const cfg = getEventCfg(o);
                       return (
                         <div key={o.id} className="text-[10px] font-bold px-2 py-1 rounded-md truncate" style={{ background: cfg.bg, color: cfg.color }}>
