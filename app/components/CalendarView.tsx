@@ -2,6 +2,7 @@
 
 import { useState, useRef, useMemo } from "react";
 import Image from "next/image";
+import { motion, useAnimation } from "framer-motion";
 import { Order, STATUS_CONFIG } from "../lib/mockData";
 import { showToast } from "./Toast";
 
@@ -52,12 +53,59 @@ function OrderCard({ order, onClick, onStatusChange }: {
   const imageUrl = order.options.imageUrl;
   const isPersonal = isPersonalEvent(order);
 
+  // Swipe Logic (framer-motion)
+  const controls = useAnimation();
+  const [dragAction, setDragAction] = useState<"call" | "complete" | null>(null);
+
+  const handleDrag = (_event: any, info: any) => {
+    const x = info.offset.x;
+    if (x > 50) setDragAction("call");
+    else if (x < -50 && order.status !== "완료") setDragAction("complete");
+    else setDragAction(null);
+  };
+
+  const handleDragEnd = async (_event: any, info: any) => {
+    const x = info.offset.x;
+    if (x > 80 && order.phone) {
+      const a = document.createElement("a");
+      a.href = `tel:${order.phone}`;
+      a.click();
+      controls.start({ x: 0 });
+    } else if (x < -80 && onStatusChange && order.status !== "완료") {
+      onStatusChange(order.id, "완료");
+      await controls.start({ x: -400, opacity: 0, transition: { duration: 0.3 } });
+    } else {
+      controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 20 } });
+    }
+    setDragAction(null);
+  };
+
   return (
-    <div 
-      className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-sm active:scale-[0.97] transition-all duration-300"
-      onClick={onClick}
-    >
-      <div className="p-5 flex gap-4">
+    <div className="relative mb-3 rounded-[2.5rem] overflow-hidden">
+      {/* Swipe Backgrounds */}
+      <div 
+        className="absolute inset-0 flex items-center justify-between px-6 text-white text-base font-black"
+        style={{
+          background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "#4f46e5" : "#cbd5e1"
+        }}
+      >
+        <span style={{ opacity: dragAction === "call" ? 1 : 0.5 }}>📞 전화</span>
+        <span style={{ opacity: dragAction === "complete" ? 1 : 0.5 }}>✅ 완료</span>
+      </div>
+
+      <motion.div 
+        className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-sm transition-all"
+        onClick={onClick}
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.4}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
+        animate={controls}
+        style={{ touchAction: "pan-y", width: "100%", zIndex: 10 }}
+      >
+        <div className="p-5 flex gap-4">
         {imageUrl ? (
           <div className="w-20 h-20 rounded-3xl overflow-hidden flex-shrink-0 border border-slate-50 ring-4 ring-slate-50/50">
              <Image src={imageUrl} alt="" width={80} height={80} className="object-cover w-full h-full" />
@@ -91,6 +139,7 @@ function OrderCard({ order, onClick, onStatusChange }: {
           )}
         </div>
       </div>
+    </motion.div>
     </div>
   );
 }
@@ -201,8 +250,8 @@ function MobileView({ orders, onOrderClick, onStatusChange }: CalendarViewProps)
          )}
       </div>
       
-      {/* Padding for bottom bar */}
-      <div className="h-32" />
+      {/* Padding for bottom bar + Safe area */}
+      <div className="h-32 pb-[env(safe-area-inset-bottom)]" />
     </div>
   );
 }

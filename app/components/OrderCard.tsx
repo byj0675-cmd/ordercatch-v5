@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
+import { motion, useAnimation } from "framer-motion";
 import { Order, STATUS_CONFIG } from "../lib/mockData";
 
 export function OptionChips({ options }: { options: Order["options"] }) {
@@ -51,33 +52,33 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
   const imageUrl = order.options?.imageUrl;
   const [imgExpanded, setImgExpanded] = useState(false);
   
-  // Swipe Logic
-  const [offsetX, setOffsetX] = useState(0);
-  const touchStartX = useRef<number | null>(null);
-  const isSwiping = useRef(false);
+  // Swipe Logic (framer-motion)
+  const controls = useAnimation();
+  const [dragAction, setDragAction] = useState<"call" | "complete" | null>(null);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX;
-    isSwiping.current = true;
+  const handleDrag = (_event: any, info: any) => {
+    const x = info.offset.x;
+    if (x > 50) setDragAction("call");
+    else if (x < -50 && order.status !== "완료") setDragAction("complete");
+    else setDragAction(null);
   };
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return;
-    const diff = e.touches[0].clientX - touchStartX.current;
-    // Limit swipe range
-    if (Math.abs(diff) < 10) return;
-    setOffsetX(Math.max(-100, Math.min(100, diff)));
-  };
-
-  const handleTouchEnd = () => {
-    if (offsetX > 60 && order.phone) {
-      window.location.href = `tel:${order.phone}`;
-    } else if (offsetX < -60 && onStatusChange && order.status !== "완료") {
+  const handleDragEnd = async (_event: any, info: any) => {
+    const x = info.offset.x;
+    if (x > 80 && order.phone) {
+      const a = document.createElement("a");
+      a.href = `tel:${order.phone}`;
+      a.click();
+      controls.start({ x: 0 }); // reset
+    } else if (x < -80 && onStatusChange && order.status !== "완료") {
       onStatusChange(order.id, "완료");
+      // UI를 화면 밖으로 치우는 애니메이션으로 완료 체감 (Optional)
+      await controls.start({ x: -400, opacity: 0, transition: { duration: 0.3 } });
+    } else {
+      // 제자리로 복귀
+      controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 20 } });
     }
-    setOffsetX(0);
-    touchStartX.current = null;
-    isSwiping.current = false;
+    setDragAction(null);
   };
 
   return (
@@ -87,23 +88,27 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
         position: "absolute", inset: 0, 
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 24px",
-        background: offsetX > 0 ? "#10b981" : offsetX < 0 ? "#4f46e5" : "transparent",
+        background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "#4f46e5" : "#cbd5e1",
         color: "#fff", fontSize: 16, fontWeight: 800,
-        opacity: Math.abs(offsetX) / 100,
       }}>
-        <span>📞 전화</span>
-        <span>✅ 완료</span>
+        <span style={{ opacity: dragAction === "call" ? 1 : 0.5 }}>📞 전화</span>
+        <span style={{ opacity: dragAction === "complete" ? 1 : 0.5 }}>✅ 완료</span>
       </div>
 
-      <div
+      <motion.div
         role="button"
         tabIndex={0}
-        onClick={() => { if (!isSwiping.current || Math.abs(offsetX) < 5) onClick(); }}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onClick={() => onClick()}
+        onKeyDown={(e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+        drag="x"
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.4}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
+        animate={controls}
         style={{
+          touchAction: "pan-y",
           width: "100%",
           textAlign: "left",
           background: "#ffffff",
@@ -115,11 +120,10 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
           gap: 10,
           cursor: "pointer",
           boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
-          transition: offsetX === 0 ? "all 0.2s ease" : "none",
           position: "relative",
-          transform: `translateX(${offsetX}px)`,
           outline: "none",
           userSelect: "none",
+          zIndex: 10,
         }}
       >
         {/* Row 1: Time + Status Badge */}
@@ -169,7 +173,7 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
              <span style={{ fontSize: 16, fontWeight: 900, color: "#0f172a" }}>{order.amount.toLocaleString()}원</span>
            </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Image Lightbox */}
       {imgExpanded && imageUrl && (

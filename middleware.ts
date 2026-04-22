@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
     }
 
     // 2. If no session and user is on the dashboard, redirect to landing
-    if (!session && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const isMockUser = request.cookies.get('ordercatch-mock-user')?.value === 'true';
+    if (!session && !isMockUser && request.nextUrl.pathname.startsWith('/dashboard')) {
       return NextResponse.redirect(new URL('/', request.url))
     }
 

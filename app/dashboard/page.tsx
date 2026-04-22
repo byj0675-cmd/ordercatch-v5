@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import useSWR from "swr";
 import {
   STATUS_CONFIG,
   SOURCE_CONFIG,
@@ -24,7 +25,6 @@ const DashboardSkeleton = dynamic(() => import("../components/SkeletonUI").then(
 const OrderCard = dynamic(() => import("../components/OrderCard"), { ssr: false });
 const FAB = dynamic(() => import("../components/FAB"), { ssr: false });
 
-
 type ViewMode = "calendar" | "list";
 
 const SUMMARY_CARDS = [
@@ -39,25 +39,83 @@ const SUMMARY_CARDS = [
 type FilterKey = (typeof SUMMARY_CARDS)[number]["key"];
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState<Order[]>([]);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManualSheet, setShowManualSheet] = useState(false);
   const [selectedStoreId] = useState<string>("all");
-  const [, setIsFetching] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
   const [mounted, setMounted] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isPasting, setIsPasting] = useState(false);
+  const [forceReady, setForceReady] = useState(false); // 2초 방어용
 
-  const { profile, loading, updateStoreProfile } = useStoreProvider();
+  const { profile, storeInfo, loading, isMaster, updateStoreProfile, createStore, joinStoreByCode, refreshStore } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardName, setOnboardName] = useState("");
-  const [onboardCategory, setOnboardCategory] = useState("dessert");
-  const [onboardOwner, setOnboardOwner] = useState("");
-  const [onboardLoading, setOnboardLoading] = useState(false);
   const router = useRouter();
+
+  // SWR Fetcher — store_id 기반 (팀 공유)
+  const fetcher = async (storeId: string) => {
+    setIsFetching(true);
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('store_id', storeId)
+        .order('pickup_date', { ascending: true });
+      if (error) throw error;
+      const mappedOrders: Order[] = data.map((o: any) => ({
+        id: o.id,
+        storeId: o.store_id,
+        storeName: storeInfo?.name || profile?.store_name || "",
+        storeType: (storeInfo?.category || profile?.category as any) || "dessert",
+        customerName: o.customer_name,
+        phone: o.phone,
+        productName: o.product_name,
+        pickupDate: o.pickup_date,
+        status: o.status as OrderStatus,
+        amount: Number(o.amount) || 0,
+        source: o.source as any,
+        options: o.options || {},
+        createdAt: o.created_at,
+      }));
+      localStorage.setItem("ordercatch_orders_cache", JSON.stringify(mappedOrders));
+      return mappedOrders;
+    } finally {
+      setIsFetching(false);
+      setForceReady(true);
+    }
+  };
+
+  // SWR key: profile.store_id (팀 공유 store) 우선, 없으면 profile.id (레거시)
+  const swrKey = profile?.store_id || (profile?.id ? profile.id : null);
+  const { data: rawOrders, mutate } = useSWR<Order[]>(
+    swrKey,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  // 초기 렌더링 시 캐시 데이터 복원 + 2초 강제 렌더링
+  useEffect(() => {
+    const cached = localStorage.getItem("ordercatch_orders_cache");
+    if (cached) {
+      try {
+        setOrders(JSON.parse(cached));
+      } catch (e) {}
+    }
+    const timer = setTimeout(() => setForceReady(true), 2000); // 2초 뒤 무조건 켜기
+    return () => clearTimeout(timer);
+  }, []);
+
+  // SWR 데이터 싱크
+  useEffect(() => {
+    if (rawOrders && rawOrders.length > 0) {
+      setOrders(rawOrders);
+    }
+  }, [rawOrders]);
 
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("code");
@@ -108,63 +166,26 @@ export default function Dashboard() {
   useEffect(() => {
     if (!loading) {
       if (!profile) {
-        // 비로그인 → 랜딩으로
         router.replace("/");
         return;
       }
-      if (!profile.store_name) {
+      // store_id가 없으면 온보딩 (새 매장 or 초대 코드 합류)
+      if (!profile.store_id) {
         setShowOnboarding(true);
+        setForceReady(true);
       } else {
         setShowOnboarding(false);
-        fetchOrders(profile.id);
       }
     }
   }, [profile, loading]);
 
-  const fetchOrders = async (userId: string) => {
-    setIsFetching(true);
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('store_id', userId)
-        .order('pickup_date', { ascending: true });
-
-      if (error) throw error;
-
-      if (data) {
-        const mappedOrders: Order[] = data.map((o: any) => ({
-          id: o.id,
-          storeId: o.store_id,
-          storeName: profile?.store_name || "",
-          storeType: (profile?.category as any) || "dessert",
-          customerName: o.customer_name,
-          phone: o.phone,
-          productName: o.product_name,
-          pickupDate: o.pickup_date,
-          status: o.status as OrderStatus,
-          amount: Number(o.amount) || 0,
-          source: o.source as any,
-          options: o.options || {},
-          createdAt: o.created_at,
-        }));
-        setOrders(mappedOrders);
-      }
-    } catch (err) {
-      console.error("Failed to fetch orders:", err);
-      showToast("데이터를 불러오지 못했습니다.", "error");
-    } finally {
-      setIsFetching(false);
-    }
-  };
-
   const activeStore = {
-    id: profile?.id || "",
-    name: profile?.store_name || "",
-    type: (profile?.category as any) || "dessert",
+    id: profile?.store_id || profile?.id || "",
+    name: storeInfo?.name || profile?.store_name || "",
+    type: (storeInfo?.category || profile?.category as any) || "dessert",
     owner: profile?.owner_name || "",
-    webhookUrl: `/api/webhook/kakao?storeId=${profile?.store_slug || ""}`,
-    orderLink: `/order/${profile?.store_slug || ""}`,
+    webhookUrl: `/api/webhook/kakao?storeSlug=${storeInfo?.slug || profile?.store_slug || ""}`,
+    orderLink: `/order/${storeInfo?.slug || profile?.store_slug || ""}`,
     avatar: "🏪",
     color: "#007aff",
   };
@@ -216,6 +237,13 @@ export default function Dashboard() {
   }, [orders, mounted]);
 
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
+    // 낙관적 업데이트
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder((prev) => prev ? { ...prev, status: newStatus } : null);
+    }
+    showToast(`상태가 [${newStatus}]로 변경되었습니다.`, "success");
+
     try {
       const { error } = await supabase
         .from('orders')
@@ -223,18 +251,11 @@ export default function Dashboard() {
         .eq('id', orderId);
 
       if (error) throw error;
-
-      setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
-      );
-      
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder((prev) => prev ? { ...prev, status: newStatus } : null);
-      }
-      showToast(`상태가 [${newStatus}]로 변경되었습니다.`, "success");
+      mutate(); // 백그라운드 데이터 갱신
     } catch (err) {
       console.error("Update status error:", err);
-      showToast("상태 변경에 실패했습니다.", "error");
+      showToast("상태 변경에 실패했습니다. 데이터를 다시 불러옵니다.", "error");
+      mutate(); // 에러 시 복구
     }
   };
 
@@ -305,7 +326,8 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  if (loading) {
+  // 강제 렌더링을 위해 최대 2초만 대기
+  if (loading && !forceReady && orders.length === 0) {
     return <DashboardSkeleton />;
   }
 
@@ -335,25 +357,36 @@ export default function Dashboard() {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-          <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            {SUMMARY_CARDS.slice(1, 5).map(card => (
-              <button 
-                key={card.key}
-                onClick={() => setActiveFilter(card.key)}
-                className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
-              >
-                <div className="text-2xl mb-1">{card.icon}</div>
-                <div className="text-sm font-bold text-slate-400">{card.label}</div>
-                <div className="text-2xl font-black text-slate-900">{summaryData[card.key]}</div>
-              </button>
-            ))}
-          </div>
+          {/* 스태프는 매출 카드 숨김 */}
+          {isMaster && (
+            <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {SUMMARY_CARDS.slice(1, 5).map(card => (
+                <button 
+                  key={card.key}
+                  onClick={() => setActiveFilter(card.key)}
+                  className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
+                >
+                  <div className="text-2xl mb-1">{card.icon}</div>
+                  <div className="text-sm font-bold text-slate-400">{card.label}</div>
+                  <div className="text-2xl font-black text-slate-900">{summaryData[card.key]}</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 스태프일 때 📌 라벨 표시 */}
+          {!isMaster && (
+            <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-sm font-bold text-amber-700">
+              <span>👤</span>
+              <span>스태프 모드 — 주문 조회 및 상태 변경만 가능합니다</span>
+            </div>
+          )}
 
           {profile?.id && mounted && (
             <div className="mb-8">
               <PasteBoard
-                onParsed={() => fetchOrders(profile.id)}
-                storeId={profile.id}
+                onParsed={() => mutate()}
+                storeId={profile.store_id || profile.id}
               />
             </div>
           )}
@@ -390,6 +423,7 @@ export default function Dashboard() {
                   onOrderClick={setSelectedOrder} 
                   formatPickup={formatPickup} 
                   profile={profile} 
+                  onStatusChange={handleStatusChange}
                 />
               )}
             </div>
@@ -432,8 +466,11 @@ export default function Dashboard() {
       </div>
 
       {/* Premium Glassmorphic Bottom Bar (Mobile Only) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp">
-         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between">
+      <div 
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+      >
+         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between mx-auto" style={{ width: 'calc(100% - 32px)' }}>
             <button 
               onClick={() => setViewMode("calendar")} 
               className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "calendar" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
@@ -471,9 +508,9 @@ export default function Dashboard() {
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}
       {showManualSheet && profile?.id && (
         <ManualOrderSheet
-          storeId={profile.id}
+          storeId={profile.store_id || profile.id}
           onClose={() => setShowManualSheet(false)}
-          onSaved={() => fetchOrders(profile.id)}
+          onSaved={() => mutate()}
         />
       )}
 
@@ -488,7 +525,19 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showOnboarding && <OnboardingModal profile={profile} updateProfile={updateStoreProfile} onClose={() => setShowOnboarding(false)} onSaved={() => fetchOrders(profile?.id || "")} />}
+      {showOnboarding && (
+        <OnboardingModal
+          onClose={() => setShowOnboarding(false)}
+          onSaved={() => { setShowOnboarding(false); refreshStore(); mutate(); }}
+        />
+      )}
+
+      {/* PC 프린트 전용 섹션 */}
+      <PrintSection 
+        dateLabel={selectedDay ? formatDate(selectedDay) : "오늘"} 
+        orders={selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders} 
+        totalRevenue={(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).reduce((acc, cur) => acc + cur.amount, 0)} 
+      />
     </>
   );
 }
@@ -500,55 +549,148 @@ function formatDate(d: Date) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
-function OnboardingModal({ profile, updateProfile, onClose, onSaved }: any) {
+function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { createStore, joinStoreByCode } = useStoreProvider();
+  const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
+  // create
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [cat, setCat] = useState("dessert");
+  // join
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleCreate = async () => {
+    if (!name || !owner) return;
+    setLoading(true);
+    const ok = await createStore({ store_name: name, category: cat, owner_name: owner });
+    setLoading(false);
+    if (ok) { onSaved(); }
+    else setError("매장 생성에 실패했습니다. 다시 시도해주세요.");
+  };
+
+  const handleJoin = async () => {
+    if (!code.trim()) return;
+    setLoading(true);
+    setError("");
+    const result = await joinStoreByCode(code);
+    setLoading(false);
+    if (result.success) { onSaved(); }
+    else setError(result.error || "합류에 실패했습니다.");
+  };
+
+  const CATS = [
+    {id:"dessert", label:"🍬 디저트"}, {id:"nail", label:"💅 네일"},
+    {id:"bakery", label:"🥐 베이커리"}, {id:"flower", label:"🌸 플라워"},
+    {id:"restaurant", label:"🍽️ 식당"}, {id:"other", label:"✨ 기타"}
+  ];
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn">
-          <h2 className="text-2xl font-black text-slate-900 mb-2">환영합니다! 🎉</h2>
-          <p className="text-slate-400 font-bold text-sm mb-8 leading-relaxed">AI 비서가 주문서를 똑똑하게 분석할 수 있도록<br />매장의 기본 정보를 알려주세요.</p>
-          
-          <div className="space-y-6">
-             <div className="space-y-2">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">업종 카테고리</label>
-                <div className="grid grid-cols-3 gap-2">
-                   {[{id:"dessert", label:"糖 디저트"}, {id:"nail", label:"💅 네일"}, {id:"bakery", label:"🥐 빵"}, {id:"flower", label:"🌸 꽃"}, {id:"restaurant", label:"🍽️ 식당"}, {id:"other", label:"✨ 기타"}].map(c => (
-                     <button key={c.id} onClick={() => setCat(c.id)} className={`py-3 rounded-xl text-xs font-black transition-all ${cat === c.id ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100" : "bg-slate-50 text-slate-400"}`}>{c.label}</button>
-                   ))}
-                </div>
-             </div>
-             <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">매장 이름</label>
-                <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="예: 아만다 케이크" className="w-full mt-2 p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 outline-none focus:ring-2 ring-indigo-100 transition-all" />
-             </div>
-             <div>
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">대표자 성함</label>
-                <input type="text" value={owner} onChange={e=>setOwner(e.target.value)} placeholder="사장님 성함을 입력하세요" className="w-full mt-2 p-4 bg-slate-50 rounded-2xl border-none font-bold text-slate-900 outline-none focus:ring-2 ring-indigo-100 transition-all" />
-             </div>
-          </div>
+      <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn">
 
-          <button 
-             disabled={loading || !name || !owner}
-             onClick={async () => {
-                setLoading(true);
-                const ok = await updateProfile({ store_name: name, category: cat, owner_name: owner });
-                if (ok) { showToast("매장 정보가 등록되었습니다! ✨", "success"); onSaved(); onClose(); }
-                setLoading(false);
-             }}
-             className="w-full mt-10 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-             {loading ? "매장 오픈 준비 중..." : "오더캐치 시작하기"}
-          </button>
-       </div>
+        {/* ① 모드 선택 */}
+        {mode === "choose" && (
+          <>
+            <div className="text-center mb-8">
+              <div className="text-4xl mb-3">🎉</div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">환영합니다!</h2>
+              <p className="text-slate-400 font-bold text-sm leading-relaxed">오더캐치를 시작하는 방법을 선택해주세요</p>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => setMode("create")}
+                className="w-full p-5 rounded-2xl bg-indigo-600 text-white font-black text-left hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+              >
+                <div className="text-xl mb-1">🏪 새 매장 만들기</div>
+                <div className="text-indigo-200 text-sm font-bold">사장님으로 시작하기 — 매장 정보를 등록하세요</div>
+              </button>
+              <button
+                onClick={() => setMode("join")}
+                className="w-full p-5 rounded-2xl bg-slate-50 text-slate-700 font-black text-left hover:bg-slate-100 transition-all border border-slate-200"
+              >
+                <div className="text-xl mb-1">👥 초대 코드로 합류하기</div>
+                <div className="text-slate-400 text-sm font-bold">직원으로 참여하기 — 사장님에게 코드를 받으세요</div>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ② 매장 생성 */}
+        {mode === "create" && (
+          <>
+            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+              ← 돌아가기
+            </button>
+            <h2 className="text-2xl font-black text-slate-900 mb-6">새 매장 만들기 🏪</h2>
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">업종</label>
+                <div className="grid grid-cols-3 gap-2 mt-2">
+                  {CATS.map(c => (
+                    <button key={c.id} onClick={() => setCat(c.id)}
+                      className={`py-3 rounded-xl text-xs font-black transition-all ${cat===c.id ? "bg-indigo-600 text-white" : "bg-slate-50 text-slate-400"}`}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">매장 이름</label>
+                <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="예: 아만다 케이크"
+                  className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
+              </div>
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">대표자 성함</label>
+                <input type="text" value={owner} onChange={e=>setOwner(e.target.value)} placeholder="사장님 성함"
+                  className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
+              </div>
+              {error && <p className="text-sm font-bold text-red-500">{error}</p>}
+              <button
+                disabled={loading || !name || !owner}
+                onClick={handleCreate}
+                className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {loading ? "매장 오픈 준비 중..." : "오더케치 시작하기"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ③ 코드로 합류 */}
+        {mode === "join" && (
+          <>
+            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
+              ← 돌아가기
+            </button>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">잔두 코드로 합류 👥</h2>
+            <p className="text-slate-400 text-sm font-bold mb-6 leading-relaxed">사장님으로부터 받은 초대 코드를 입력하세요</p>
+            <div className="space-y-4">
+              <input
+                type="text" value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
+                placeholder="8자리 코드 입력 (ABCD1234)"
+                maxLength={8}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-black text-lg tracking-widest text-center outline-none focus:ring-2 ring-indigo-100"
+              />
+              {error && <p className="text-sm font-bold text-red-500 text-center">{error}</p>}
+              <button
+                disabled={loading || code.trim().length < 6}
+                onClick={handleJoin}
+                className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {loading ? "확인 중..." : "합류하기"}
+              </button>
+            </div>
+          </>
+        )}
+
+      </div>
     </div>
   );
 }
 
-function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Order[]; onOrderClick: (o: Order) => void; formatPickup: (s: string) => string; profile: any; }) {
+function ListView({ orders, onOrderClick, formatPickup, profile, onStatusChange }: { orders: Order[]; onOrderClick: (o: Order) => void; formatPickup: (s: string) => string; profile: any; onStatusChange: (id: string, s: Order["status"]) => void; }) {
   if (orders.length === 0) return <EmptyState filter="all" />;
 
   return (
@@ -594,7 +736,7 @@ function ListView({ orders, onOrderClick, formatPickup, profile }: { orders: Ord
        {/* Mobile Card View */}
        <div className="md:hidden p-4 space-y-4">
           {orders.map(order => (
-            <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order)} />
+            <OrderCard key={order.id} order={order} onClick={() => onOrderClick(order)} onStatusChange={onStatusChange} />
           ))}
        </div>
     </div>
@@ -662,6 +804,79 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
       <div style={{ fontSize: 56 }}>{m.emoji}</div>
       <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>{m.title}</div>
       <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{m.sub}</div>
+    </div>
+  );
+}
+
+// ── 프린트용 섹션 ──────────────────────────────────────────────
+function PrintSection({
+  dateLabel,
+  orders,
+  totalRevenue,
+}: {
+  dateLabel: string;
+  orders: Order[];
+  totalRevenue: number;
+}) {
+  const formatTimeOnly = (iso: string) => {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "--:--";
+    return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
+
+  return (
+    <div id="print-section">
+      <div style={{ padding: "40px 32px", color: "#000", background: "#fff" }}>
+        <div style={{ borderBottom: "3px solid #000", paddingBottom: 16, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>
+              DAILY ORDER SHEET
+            </h1>
+            <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>
+              {dateLabel} 주문 내역
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <p style={{ margin: 0, fontSize: 13, color: "#666" }}>출력 일시: {new Date().toLocaleString("ko-KR")}</p>
+            <p style={{ margin: "2px 0 0", fontSize: 15, fontWeight: 800 }}>금액 합계: {totalRevenue.toLocaleString()}원</p>
+          </div>
+        </div>
+
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {["No", "시간", "고객명", "주문 상품", "요청사항 / 메모", "금액"].map((h) => (
+                <th key={h} style={{ padding: "12px 8px", borderBottom: "2px solid #000", textAlign: "left", fontSize: 13, fontWeight: 800 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map((o, i) => (
+              <tr key={o.id} style={{ borderBottom: "1px solid #ddd" }}>
+                <td style={{ padding: "12px 8px", fontSize: 12, color: "#666" }}>{i + 1}</td>
+                <td style={{ padding: "12px 8px", fontSize: 15, fontWeight: 800 }}>{formatTimeOnly(o.pickupDate)}</td>
+                <td style={{ padding: "12px 8px", fontSize: 15, fontWeight: 800 }}>{o.customerName}</td>
+                <td style={{ padding: "12px 8px", fontSize: 14 }}>{o.productName}</td>
+                <td style={{ padding: "12px 8px", fontSize: 13, lineHeight: 1.5, maxWidth: 260 }}>
+                  {o.options?.memo || o.options?.custom || <span style={{ color: "#ccc" }}>-</span>}
+                </td>
+                <td style={{ padding: "12px 8px", fontSize: 14, fontWeight: 700, textAlign: "right" }}>
+                  {o.amount.toLocaleString()}원
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {orders.length === 0 && (
+          <div style={{ textAlign: "center", padding: "60px 0", color: "#999" }}>해당 날짜에 등록된 주문이 없습니다.</div>
+        )}
+
+        <div style={{ marginTop: 60, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#888" }}>
+          <span>OrderCatch</span>
+          <span>주문 확인용 내부 문서</span>
+        </div>
+      </div>
     </div>
   );
 }

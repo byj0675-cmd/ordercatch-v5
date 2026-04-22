@@ -165,7 +165,8 @@ function LandingContent() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
-    setIsLocal(window.location.hostname === "localhost");
+    const hostname = window.location.hostname;
+    setIsLocal(hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]");
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
