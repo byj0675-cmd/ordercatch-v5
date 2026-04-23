@@ -95,7 +95,7 @@ function OrderCard({ order, onClick, onStatusChange }: {
 
       <motion.div 
         className="group relative overflow-hidden rounded-[2.5rem] bg-white border border-slate-100 shadow-sm transition-all"
-        onClick={onClick}
+        onTap={onClick}
         drag="x"
         dragDirectionLock
         dragConstraints={{ left: 0, right: 0 }}

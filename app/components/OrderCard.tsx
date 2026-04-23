@@ -98,7 +98,7 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
       <motion.div
         role="button"
         tabIndex={0}
-        onClick={() => onClick()}
+        onTap={() => onClick()}
         onKeyDown={(e: any) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
         drag="x"
         dragDirectionLock

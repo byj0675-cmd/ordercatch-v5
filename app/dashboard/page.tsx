@@ -98,7 +98,7 @@ export default function Dashboard() {
 
   const [orders, setOrders] = useState<Order[]>([]);
 
-  // 초기 렌더링 시 캐시 데이터 복원 + 2초 강제 렌더링
+  // 초기 렌더링 시 캐시 데이터 복원 + 로딩 즉시 해제
   useEffect(() => {
     const cached = localStorage.getItem("ordercatch_orders_cache");
     if (cached) {
@@ -106,13 +106,12 @@ export default function Dashboard() {
         setOrders(JSON.parse(cached));
       } catch (e) {}
     }
-    const timer = setTimeout(() => setForceReady(true), 2000); // 2초 뒤 무조건 켜기
-    return () => clearTimeout(timer);
+    setForceReady(true);
   }, []);
 
   // SWR 데이터 싱크
   useEffect(() => {
-    if (rawOrders && rawOrders.length > 0) {
+    if (rawOrders) {
       setOrders(rawOrders);
     }
   }, [rawOrders]);
@@ -467,10 +466,10 @@ export default function Dashboard() {
 
       {/* Premium Glassmorphic Bottom Bar (Mobile Only) */}
       <div 
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp"
+        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp pointer-events-none"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
       >
-         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between mx-auto" style={{ width: 'calc(100% - 32px)' }}>
+         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between mx-auto pointer-events-auto" style={{ width: 'calc(100% - 32px)' }}>
             <button 
               onClick={() => setViewMode("calendar")} 
               className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "calendar" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
