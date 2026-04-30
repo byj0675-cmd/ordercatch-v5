@@ -5,6 +5,7 @@ import { supabase } from "@/utils/supabase/client";
 import { type Order, type OrderStatus } from "../lib/mockData";
 import { showToast } from "./Toast";
 import ImageLightbox from "./ImageLightbox";
+import { useStoreProvider } from "../context/StoreContext";
 
 // --- 디자인 시스템 상수 (Indigo & Slate 테마) ---
 const STATUS_CONFIG: Record<OrderStatus, { color: string; bg: string; label: string; dot: string }> = {
@@ -33,6 +34,7 @@ interface OrderDetailModalProps {
 const STATUSES: Order["status"][] = ["신규주문", "제작중", "픽업대기", "완료", "취소"];
 
 export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete, onUpdated }: OrderDetailModalProps) {
+  const { updateOrderFields } = useStoreProvider();
   const [isSaving, setIsSaving] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
 
@@ -114,20 +116,31 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   }, [order.storeId]);
 
   const handleSave = async () => {
-    // 이미지가 아직 업로드 중이면 완료 대기 (대부분의 경우 이미 완료됨)
+    // 이미지 업로드 대기 (이미 백그라운드 진행 중이면 완료 대기)
     let finalImageUrl: string | null = uploadedImageUrlRef.current;
     if (!imagePreview) {
-      finalImageUrl = null; // 이미지 삭제됨
+      finalImageUrl = null;
     } else if (uploadingImage && uploadPromiseRef.current) {
       setIsSaving(true);
       finalImageUrl = await uploadPromiseRef.current;
       setIsSaving(false);
-      if (!finalImageUrl) return; // 업로드 실패 시 저장 중단
+      if (!finalImageUrl) return;
     }
 
     const pickupIso = editDate
       ? new Date(`${editDate}T${editTime || "12:00"}:00`).toISOString()
       : order.pickupDate;
+
+    // ── Local-First: Dexie 즉시 업데이트 → Pro: 백그라운드 sync ──
+    await updateOrderFields(order.id, {
+      customerName: editName,
+      phone: editPhone,
+      productName: editProduct,
+      pickupDate: pickupIso,
+      amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
+      status: editStatus,
+      options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
+    });
 
     const updatedOrder: Order = {
       ...order,
@@ -140,32 +153,8 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
       options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
     };
 
-    // Optimistic: 즉시 UI 업데이트 후 모달 닫기
     if (onUpdated) onUpdated(updatedOrder);
     onClose();
-
-    // 백그라운드 Supabase 동기화
-    (async () => {
-      try {
-        const { error } = await supabase
-          .from("orders")
-          .update({
-            customer_name: editName,
-            phone: editPhone,
-            product_name: editProduct,
-            pickup_date: pickupIso,
-            amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
-            status: editStatus,
-            options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl },
-          })
-          .eq("id", order.id);
-        if (error) throw error;
-      } catch (err) {
-        console.error(err);
-        showToast("저장에 실패했습니다. 변경사항이 되돌아갑니다.", "error");
-        if (onUpdated) onUpdated(order); // 롤백
-      }
-    })();
   };
 
   return (

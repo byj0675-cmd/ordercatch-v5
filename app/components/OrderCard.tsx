@@ -46,12 +46,20 @@ function formatTime(iso: string) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-export default function OrderCard({ order, onClick, onStatusChange }: { order: Order; onClick: () => void; onStatusChange?: (id: string, s: Order["status"]) => void }) {
+export default function OrderCard({
+  order,
+  onClick,
+  onStatusChange,
+}: {
+  order: Order;
+  onClick: () => void;
+  onStatusChange?: (id: string, s: Order["status"]) => void;
+}) {
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG["신규주문"] || {};
   const highlight = order.options?.memo || order.options?.custom;
   const imageUrl = order.options?.imageUrl;
   const [imgExpanded, setImgExpanded] = useState(false);
-  
+
   // Swipe Logic (framer-motion)
   const controls = useAnimation();
   const [dragAction, setDragAction] = useState<"call" | "complete" | null>(null);
@@ -63,21 +71,26 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
     else setDragAction(null);
   };
 
-  const handleDragEnd = async (_event: any, info: any) => {
+  const handleDragEnd = (_event: any, info: any) => {
     const x = info.offset.x;
+
     if (x > 80 && order.phone) {
+      // 전화 걸기
       const a = document.createElement("a");
       a.href = `tel:${order.phone}`;
       a.click();
-      controls.start({ x: 0 }); // reset
+      // fire-and-forget: await 없이 즉시 반환
+      controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 20 } });
     } else if (x < -80 && onStatusChange && order.status !== "완료") {
+      // 로컬 DB 즉시 반영 (await 없이 — useLiveQuery가 자동 갱신)
       onStatusChange(order.id, "완료");
-      // UI를 화면 밖으로 치우는 애니메이션으로 완료 체감 (Optional)
-      await controls.start({ x: -400, opacity: 0, transition: { duration: 0.3 } });
+      // 슬라이드 아웃 애니메이션 (non-blocking)
+      controls.start({ x: -400, opacity: 0, transition: { duration: 0.25 } });
     } else {
-      // 제자리로 복귀
+      // 제자리 복귀
       controls.start({ x: 0, transition: { type: "spring", stiffness: 300, damping: 20 } });
     }
+
     setDragAction(null);
   };
 
@@ -85,7 +98,7 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
     <div style={{ position: "relative", overflow: "hidden", borderRadius: 20, marginBottom: 12 }}>
       {/* Swipe Backgrounds */}
       <div style={{
-        position: "absolute", inset: 0, 
+        position: "absolute", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 24px",
         background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "#4f46e5" : "#cbd5e1",
@@ -132,23 +145,23 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
              <ClockIcon color="#4f46e5" />
              <span style={{ fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>{formatTime(order.pickupDate)}</span>
           </div>
-          <span style={{ 
+          <span style={{
             fontSize: 12, fontWeight: 800, padding: "4px 12px", borderRadius: 100,
             background: cfg?.bg || "#f8fafc", color: cfg?.color || "#64748b",
-            border: `1px solid ${cfg?.color}20` 
+            border: `1px solid ${cfg?.color}20`
           }}>
             {cfg?.label || "상태없음"}
           </span>
         </div>
 
-        {/* Row 2: Customer Name (Master Title) */}
+        {/* Row 2: Customer Name */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 18, fontWeight: 900, color: "#0f172a", marginBottom: 2 }}>{order.customerName}</div>
             <div style={{ fontSize: 14, color: "#64748b", fontWeight: 500 }}>{order.productName}</div>
           </div>
           {imageUrl && (
-            <div 
+            <div
               onClick={(e) => { e.stopPropagation(); setImgExpanded(true); }}
               style={{ width: 56, height: 56, borderRadius: 14, overflow: "hidden", border: "2px solid #f1f5f9", flexShrink: 0 }}
             >
@@ -157,7 +170,7 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
           )}
         </div>
 
-        {/* Memo / Options */}
+        {/* Memo */}
         {highlight && (
           <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 12, border: "1px solid #f1f5f9", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
             💬 {highlight}
@@ -177,10 +190,10 @@ export default function OrderCard({ order, onClick, onStatusChange }: { order: O
 
       {/* Image Lightbox */}
       {imgExpanded && imageUrl && (
-        <div 
+        <div
           onClick={() => setImgExpanded(false)}
-          style={{ 
-            position: "fixed", inset: 0, zIndex: 9999, 
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
             background: "rgba(0,0,0,0.9)", backdropFilter: "blur(10px)",
             display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out"
           }}

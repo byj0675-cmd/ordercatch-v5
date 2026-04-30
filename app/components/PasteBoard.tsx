@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Order, SOURCE_CONFIG } from "../lib/mockData";
 import { showToast } from "./Toast";
-import { supabase } from "@/utils/supabase/client";
+import { useStoreProvider, UsageLimitError } from "../context/StoreContext";
+import type { AddOrderPayload } from "../context/StoreContext";
 import DuplicateCheckModal from "./DuplicateCheckModal";
 
 interface PasteBoardProps {
@@ -27,6 +28,7 @@ const EXAMPLE_TEXTS = [
 ];
 
 export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
+  const { addOrder, profile, storeInfo } = useStoreProvider();
   const [text, setText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,23 +87,27 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       return;
     }
 
-    // Duplicate check
+    // Duplicate check (Dexie 로컬 DB 조회)
     if (editedData.customerName.trim() && editedData.phone.trim().length >= 10) {
       try {
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("store_id", storeId)
-          .eq("customer_name", editedData.customerName.trim())
-          .eq("phone", editedData.phone.trim())
-          .order("created_at", { ascending: false });
+        const { db } = await import("@/app/lib/db");
+        const existing = await db.orders
+          .where("storeId")
+          .equals(storeId)
+          .filter(
+            (o) =>
+              !o.isDeleted &&
+              o.customerName === editedData!.customerName.trim() &&
+              o.phone === editedData!.phone.trim()
+          )
+          .toArray();
 
-        if (!error && data && data.length > 0) {
-          const mapped: Order[] = data.map((row) => ({
-            id: row.id, storeId: row.store_id, storeName: "", storeType: "dessert",
-            customerName: row.customer_name, phone: row.phone, productName: row.product_name,
-            pickupDate: row.pickup_date, status: row.status as any, amount: row.amount,
-            options: row.options || {}, source: row.source, createdAt: row.created_at || new Date().toISOString(),
+        if (existing.length > 0) {
+          const mapped: Order[] = existing.map((o) => ({
+            id: o.id, storeId: o.storeId, storeName: o.storeName, storeType: o.storeType as any,
+            customerName: o.customerName, phone: o.phone, productName: o.productName,
+            pickupDate: o.pickupDate, status: o.status as any, amount: o.amount,
+            options: o.options as any, source: o.source, createdAt: o.createdAt,
           }));
           setExistingOrders(mapped);
           setShowDuplicateModal(true);
@@ -132,41 +138,34 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       const options: Record<string, any> = {};
       if (editedData.memo.trim()) options.memo = editedData.memo.trim();
 
-      const payload = {
-        store_id: storeId,
-        customer_name: editedData.customerName.trim(),
+      const payload: AddOrderPayload = {
+        storeId,
+        storeName: storeInfo?.name || profile?.store_name || "",
+        storeType: storeInfo?.category || profile?.category || "dessert",
+        customerName: editedData.customerName.trim(),
         phone: editedData.phone.trim(),
-        product_name: editedData.productName.trim(),
-        pickup_date: pickupIso,
+        productName: editedData.productName.trim(),
+        pickupDate: pickupIso,
         amount: Number(editedData.amount.replace(/[^0-9]/g, "")) || 0,
         status: "신규주문",
         source: "manual",
         options,
       };
 
-      console.log("[PasteBoard] Saving to Supabase:", payload);
+      // ── Local-First 저장 (즉각, 스피너 없음) ──
+      await addOrder(payload);
 
-      let error;
-      if (existingId) {
-        ({ error } = await supabase.from("orders").update(payload).eq("id", existingId));
-      } else {
-        ({ error } = await supabase.from("orders").insert(payload));
-      }
-
-      if (error) {
-        console.error("[PasteBoard] Supabase error:", error);
-        throw new Error(error.message);
-      }
-
-      showToast(existingId ? "기존 주문이 수정되었습니다! ✏️" : "주문이 등록되었습니다! 🎉", "success");
-
+      showToast("주문이 등록되었습니다! 🎉", "success");
       setIsExpanded(false);
       setText("");
       setEditedData(null);
       if (onParsed) onParsed({ productName: editedData.productName, status: "신규주문" });
     } catch (e: any) {
-      console.error("[PasteBoard] Save error:", e);
-      showToast(e.message || "저장 중 오류가 발생했습니다.", "error");
+      if (e instanceof UsageLimitError) {
+        showToast(`무료 한도(${e.limit}건)를 초과했습니다. Pro로 업그레이드하세요.`, "error");
+      } else {
+        showToast(e.message || "저장 중 오류가 발생했습니다.", "error");
+      }
     } finally {
       setIsSaving(false);
     }

@@ -2,16 +2,17 @@
 
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
-import useSWR from "swr";
+import { useLiveQuery } from "dexie-react-hooks";
 import {
   STATUS_CONFIG,
   SOURCE_CONFIG,
   type Order,
   type OrderStatus,
 } from "../lib/mockData";
+import { db, type LocalOrder } from "../lib/db";
 import { ToastContainer, showToast } from "../components/Toast";
 import { useStoreProvider } from "../context/StoreContext";
+import { UsageLimitError } from "../context/StoreContext";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
 
@@ -23,7 +24,8 @@ const PasteBoard = dynamic(() => import("../components/PasteBoard"), { ssr: fals
 const ManualOrderSheet = dynamic(() => import("../components/ManualOrderSheet"), { ssr: false });
 const DashboardSkeleton = dynamic(() => import("../components/SkeletonUI").then(mod => mod.DashboardSkeleton), { ssr: false });
 const OrderCard = dynamic(() => import("../components/OrderCard"), { ssr: false });
-const FAB = dynamic(() => import("../components/FAB"), { ssr: false });
+const UsageLimitModal = dynamic(() => import("../components/UsageLimitModal"), { ssr: false });
+const PaymentRequestModal = dynamic(() => import("../components/PaymentRequestModal"), { ssr: false });
 
 type ViewMode = "calendar" | "list";
 
@@ -38,6 +40,25 @@ const SUMMARY_CARDS = [
 
 type FilterKey = (typeof SUMMARY_CARDS)[number]["key"];
 
+// LocalOrder → Order (UI 호환 변환)
+function toOrder(o: LocalOrder): Order {
+  return {
+    id: o.id,
+    storeId: o.storeId,
+    storeName: o.storeName,
+    storeType: o.storeType as Order["storeType"],
+    customerName: o.customerName,
+    phone: o.phone,
+    productName: o.productName,
+    pickupDate: o.pickupDate,
+    status: o.status as OrderStatus,
+    amount: o.amount,
+    options: o.options as Order["options"],
+    source: o.source,
+    createdAt: o.createdAt,
+  };
+}
+
 export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
@@ -45,91 +66,72 @@ export default function Dashboard() {
   const [showSettings, setShowSettings] = useState(false);
   const [showManualSheet, setShowManualSheet] = useState(false);
   const [selectedStoreId] = useState<string>("all");
-  const [isFetching, setIsFetching] = useState(false);
-  const [mounted, setMounted] = useState(true);
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [isPasting, setIsPasting] = useState(false);
-  const [forceReady, setForceReady] = useState(false); // 2초 방어용
+  const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  const { profile, storeInfo, loading, isMaster, updateStoreProfile, createStore, joinStoreByCode, refreshStore } = useStoreProvider();
+  const {
+    profile, storeInfo, loading, isMaster, isPro,
+    updateOrderStatus, deleteOrder, updateOrderFields,
+    updateStoreProfile, createStore, joinStoreByCode, refreshStore,
+  } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
   const router = useRouter();
 
-  // SWR Fetcher — store_id 기반 (팀 공유)
-  const fetcher = async (storeId: string) => {
-    setIsFetching(true);
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('store_id', storeId)
-        .order('pickup_date', { ascending: true });
-      if (error) throw error;
-      const mappedOrders: Order[] = data.map((o: any) => ({
-        id: o.id,
-        storeId: o.store_id,
-        storeName: storeInfo?.name || profile?.store_name || "",
-        storeType: (storeInfo?.category || profile?.category as any) || "dessert",
-        customerName: o.customer_name,
-        phone: o.phone,
-        productName: o.product_name,
-        pickupDate: o.pickup_date,
-        status: o.status as OrderStatus,
-        amount: Number(o.amount) || 0,
-        source: o.source as any,
-        options: o.options || {},
-        createdAt: o.created_at,
-      }));
-      localStorage.setItem("ordercatch_orders_cache", JSON.stringify(mappedOrders));
-      return mappedOrders;
-    } finally {
-      setIsFetching(false);
-      setForceReady(true);
-    }
-  };
-
-  // SWR key: profile.store_id (팀 공유 store) 우선, 없으면 profile.id (레거시)
-  const swrKey = profile?.store_id || (profile?.id ? profile.id : null);
-  const { data: rawOrders, mutate } = useSWR<Order[]>(
-    swrKey,
-    fetcher,
-    { revalidateOnFocus: false }
+  // ── useLiveQuery: Dexie 실시간 구독 (네트워크 불필요) ─────
+  const storeId = profile?.store_id || profile?.id;
+  const rawLocalOrders = useLiveQuery(
+    () => {
+      if (!storeId) return Promise.resolve([] as LocalOrder[]);
+      return db.orders
+        .where("storeId")
+        .equals(storeId)
+        .filter((o) => !o.isDeleted)
+        .sortBy("pickupDate") as Promise<LocalOrder[]>;
+    },
+    [storeId]
   );
 
-  const [orders, setOrders] = useState<Order[]>([]);
+  const orders: Order[] = useMemo(
+    () => (rawLocalOrders ?? []).map(toOrder),
+    [rawLocalOrders]
+  );
 
-  // 초기 렌더링 시 캐시 데이터 복원 + 로딩 즉시 해제
-  useEffect(() => {
-    const cached = localStorage.getItem("ordercatch_orders_cache");
-    if (cached) {
-      try {
-        setOrders(JSON.parse(cached));
-      } catch (e) {}
-    }
-    setForceReady(true);
-  }, []);
+  // ── onSaved: ManualOrderSheet/PasteBoard에서 저장 완료 시 호출 ──
+  // useLiveQuery가 자동으로 재렌더링하므로 별도 mutate 불필요
+  const handleOrderSaved = () => {
+    // no-op: useLiveQuery auto-updates
+  };
 
-  // SWR 데이터 싱크
-  useEffect(() => {
-    if (rawOrders) {
-      setOrders(rawOrders);
-    }
-  }, [rawOrders]);
-
+  // ── Auth 가드 및 온보딩 ───────────────────────────────────
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get("code");
     if (code) {
       window.location.replace(`/auth/callback?code=${code}`);
       return;
     }
-    // 1회만 표시되도록 단순 타이머 처리
     const timer = setTimeout(() => {
       showToast("우측 상단 ⚙️설정에서 내 매장 고유 링크를 확인하세요!", "info", "✨");
     }, 500);
     return () => clearTimeout(timer);
   }, []);
 
-  // 전역 클립보드 이미지 붙여넣기 → Supabase order_images 업로드
+  useEffect(() => {
+    if (!loading) {
+      if (!profile) {
+        router.replace("/");
+        return;
+      }
+      if (!profile.store_id) {
+        setShowOnboarding(true);
+      } else {
+        setShowOnboarding(false);
+      }
+    }
+  }, [profile, loading, router]);
+
+  // ── 클립보드 이미지 붙여넣기 ─────────────────────────────
   useEffect(() => {
     if (!profile?.id) return;
     const handleGlobalPaste = async (e: ClipboardEvent) => {
@@ -162,100 +164,23 @@ export default function Dashboard() {
     return () => document.removeEventListener("paste", handleGlobalPaste);
   }, [profile?.id]);
 
-  useEffect(() => {
-    if (!loading) {
-      if (!profile) {
-        router.replace("/");
-        return;
-      }
-      // store_id가 없으면 온보딩 (새 매장 or 초대 코드 합류)
-      if (!profile.store_id) {
-        setShowOnboarding(true);
-        setForceReady(true);
-      } else {
-        setShowOnboarding(false);
-      }
-    }
-  }, [profile, loading]);
-
-  const activeStore = {
-    id: profile?.store_id || profile?.id || "",
-    name: storeInfo?.name || profile?.store_name || "",
-    type: (storeInfo?.category || profile?.category as any) || "dessert",
-    owner: profile?.owner_name || "",
-    webhookUrl: `/api/webhook/kakao?storeSlug=${storeInfo?.slug || profile?.store_slug || ""}`,
-    orderLink: `/order/${storeInfo?.slug || profile?.store_slug || ""}`,
-    avatar: "🏪",
-    color: "#007aff",
-  };
-
-  // Filtered orders (Guarded for hydration)
-  const filteredOrders = useMemo(() => {
-    if (!mounted) return [];
-    
-    let result = orders;
-    if (selectedStoreId !== "all") {
-      result = result.filter((o) => o.storeId === selectedStoreId);
-    }
-    
-    if (activeFilter !== "all") {
-      result = result.filter((o) => o.status === activeFilter);
-    }
-    return result;
-  }, [orders, activeFilter, selectedStoreId, mounted]);
-
-  // Summary counts (Guarded for hydration)
-  const summaryData = useMemo(() => {
-    const emptyStats = { all: 0, 신규주문: 0, 제작중: 0, 픽업대기: 0, 완료: 0, 취소: 0 };
-    if (!mounted) return emptyStats;
-
-    const storeOrders = selectedStoreId === "all" ? orders : orders.filter((o) => o.storeId === selectedStoreId);
-    return {
-      all: storeOrders.length,
-      신규주문: storeOrders.filter((o) => o.status === "신규주문").length,
-      제작중: storeOrders.filter((o) => o.status === "제작중").length,
-      픽업대기: storeOrders.filter((o) => o.status === "픽업대기").length,
-      완료: storeOrders.filter((o) => o.status === "완료").length,
-      취소: storeOrders.filter((o) => o.status === "취소").length,
-    };
-  }, [orders, selectedStoreId, mounted]);
-
-  const todayOrders = useMemo(() => {
-    if (!mounted) return [];
-    const today = new Date();
-    return orders
-      .filter((o) => {
-        const d = new Date(o.pickupDate);
-        return (
-          d.getFullYear() === today.getFullYear() &&
-          d.getMonth() === today.getMonth() &&
-          d.getDate() === today.getDate()
-        );
-      })
-      .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
-  }, [orders, mounted]);
+  // ── 핸들러: 스피너 없이 로컬 즉시 반영 ──────────────────
 
   const handleStatusChange = async (orderId: string, newStatus: Order["status"]) => {
-    // 낙관적 업데이트
-    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    // 로컬 DB 즉시 업데이트 (useLiveQuery가 자동 재렌더링)
+    await updateOrderStatus(orderId, newStatus as LocalOrder["status"]);
     if (selectedOrder?.id === orderId) {
       setSelectedOrder((prev) => prev ? { ...prev, status: newStatus } : null);
     }
     showToast(`상태가 [${newStatus}]로 변경되었습니다.`, "success");
+  };
 
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      mutate(); // 백그라운드 데이터 갱신
-    } catch (err) {
-      console.error("Update status error:", err);
-      showToast("상태 변경에 실패했습니다. 데이터를 다시 불러옵니다.", "error");
-      mutate(); // 에러 시 복구
-    }
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm("정말 이 주문을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
+    // soft-delete → useLiveQuery가 자동으로 목록에서 제거
+    await deleteOrder(orderId);
+    if (selectedOrder?.id === orderId) setSelectedOrder(null);
+    showToast("주문이 삭제되었습니다.", "success");
   };
 
   const handleImageUpload = async (orderId: string, file: File) => {
@@ -267,40 +192,19 @@ export default function Dashboard() {
         .from("order_images")
         .upload(fileName, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-      const { data: urlData } = supabase.storage.from("order_images").getPublicUrl(fileName);
+      const { data: urlData } = supabase.storage
+        .from("order_images")
+        .getPublicUrl(fileName);
       const imageUrl = urlData.publicUrl;
-      const targetOrder = orders.find((o) => o.id === orderId);
-      const { error: updateError } = await supabase
-        .from("orders")
-        .update({ options: { ...(targetOrder?.options || {}), imageUrl } })
-        .eq("id", orderId);
-      if (updateError) throw updateError;
-      setOrders((prev) =>
-        prev.map((o) => o.id === orderId ? { ...o, options: { ...o.options, imageUrl } } : o)
-      );
+      await updateOrderFields(orderId, {
+        options: {
+          ...(orders.find((o) => o.id === orderId)?.options || {}),
+          imageUrl,
+        },
+      });
       showToast("사진이 주문에 등록됐어요! 📷", "success");
     } catch (err: any) {
       showToast("사진 업로드 실패: " + (err.message || "알 수 없는 오류"), "error");
-    }
-  };
-
-  const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm("정말 이 주문을 삭제하시겠습니까? 삭제 후 복구할 수 없습니다.")) return;
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .delete()
-        .eq('id', orderId);
-
-      if (error) throw error;
-
-      setOrders((prev) => prev.filter((o) => o.id !== orderId));
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder(null);
-      }
-      showToast("주문이 삭제되었습니다.", "success");
-    } catch (err) {
-      console.error("Delete order error:", err);
     }
   };
 
@@ -310,7 +214,6 @@ export default function Dashboard() {
       router.replace("/");
       showToast("로그아웃 되었습니다.", "info", "👋");
     } catch (err) {
-      console.error("Logout error:", err);
       showToast("로그아웃 중 오류가 발생했습니다.", "error");
     }
   };
@@ -325,12 +228,63 @@ export default function Dashboard() {
     return `${m}월 ${day}일 ${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
   };
 
-  // 강제 렌더링을 위해 최대 2초만 대기
-  if (loading && !forceReady && orders.length === 0) {
+  // ── 필터링 ───────────────────────────────────────────────
+
+  const filteredOrders = useMemo(() => {
+    let result = orders;
+    if (selectedStoreId !== "all") {
+      result = result.filter((o) => o.storeId === selectedStoreId);
+    }
+    if (activeFilter !== "all") {
+      result = result.filter((o) => o.status === activeFilter);
+    }
+    return result;
+  }, [orders, activeFilter, selectedStoreId]);
+
+  const summaryData = useMemo(() => {
+    const storeOrders =
+      selectedStoreId === "all" ? orders : orders.filter((o) => o.storeId === selectedStoreId);
+    return {
+      all: storeOrders.length,
+      신규주문: storeOrders.filter((o) => o.status === "신규주문").length,
+      제작중: storeOrders.filter((o) => o.status === "제작중").length,
+      픽업대기: storeOrders.filter((o) => o.status === "픽업대기").length,
+      완료: storeOrders.filter((o) => o.status === "완료").length,
+      취소: storeOrders.filter((o) => o.status === "취소").length,
+    };
+  }, [orders, selectedStoreId]);
+
+  const todayOrders = useMemo(() => {
+    const today = new Date();
+    return orders
+      .filter((o) => {
+        const d = new Date(o.pickupDate);
+        return (
+          d.getFullYear() === today.getFullYear() &&
+          d.getMonth() === today.getMonth() &&
+          d.getDate() === today.getDate()
+        );
+      })
+      .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
+  }, [orders]);
+
+  // ── 로딩 가드: profile이 없고 loading중인 경우만 스켈레톤 ──
+  if (loading && rawLocalOrders === undefined) {
     return <DashboardSkeleton />;
   }
 
   const handlePrint = () => window.print();
+
+  const activeStore = {
+    id: profile?.store_id || profile?.id || "",
+    name: storeInfo?.name || profile?.store_name || "",
+    type: (storeInfo?.category || profile?.category as any) || "dessert",
+    owner: profile?.owner_name || "",
+    webhookUrl: `/api/webhook/kakao?storeSlug=${storeInfo?.slug || profile?.store_slug || ""}`,
+    orderLink: `/order/${storeInfo?.slug || profile?.store_slug || ""}`,
+    avatar: "🏪",
+    color: "#007aff",
+  };
 
   return (
     <>
@@ -342,8 +296,14 @@ export default function Dashboard() {
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">O</div>
                 <h1 className="text-xl font-black text-slate-900 tracking-tight desktop-only">OrderCatch</h1>
+                {/* Pro 배지 */}
+                {isPro && (
+                  <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black rounded-full">
+                    ⚡ PRO
+                  </span>
+                )}
               </div>
-              
+
               <div className="flex items-center gap-2">
                  <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors">
                     <span className="text-xl">⚙️</span>
@@ -360,7 +320,7 @@ export default function Dashboard() {
           {isMaster && (
             <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               {SUMMARY_CARDS.slice(1, 5).map(card => (
-                <button 
+                <button
                   key={card.key}
                   onClick={() => setActiveFilter(card.key)}
                   className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
@@ -373,7 +333,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* 스태프일 때 📌 라벨 표시 */}
+          {/* 스태프 모드 라벨 */}
           {!isMaster && (
             <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-sm font-bold text-amber-700">
               <span>👤</span>
@@ -381,10 +341,15 @@ export default function Dashboard() {
             </div>
           )}
 
-          {profile?.id && mounted && (
+          {/* 무료 사용자 사용량 배너 */}
+          {!isPro && profile?.store_id && (
+            <UsageBanner storeId={profile.store_id} onUpgrade={() => setShowPaymentModal(true)} />
+          )}
+
+          {profile?.id && (
             <div className="mb-8">
               <PasteBoard
-                onParsed={() => mutate()}
+                onParsed={handleOrderSaved}
                 storeId={profile.store_id || profile.id}
               />
             </div>
@@ -400,28 +365,31 @@ export default function Dashboard() {
                        <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "list" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>목록</button>
                     </div>
                  </div>
-                 
+
                  <div className="flex gap-2">
-                    <button onClick={() => setShowManualSheet(true)} className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    <button
+                      onClick={() => setShowManualSheet(true)}
+                      className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    >
                        + 주문 등록
                     </button>
                  </div>
               </div>
 
               {viewMode === "calendar" ? (
-                <CalendarView 
-                  orders={orders} 
-                  onOrderClick={setSelectedOrder} 
-                  onDayClick={setSelectedDay} 
-                  selectedDay={selectedDay || new Date()} 
-                  onStatusChange={handleStatusChange} 
+                <CalendarView
+                  orders={orders}
+                  onOrderClick={setSelectedOrder}
+                  onDayClick={setSelectedDay}
+                  selectedDay={selectedDay || new Date()}
+                  onStatusChange={handleStatusChange}
                 />
               ) : (
-                <ListView 
-                  orders={filteredOrders} 
-                  onOrderClick={setSelectedOrder} 
-                  formatPickup={formatPickup} 
-                  profile={profile} 
+                <ListView
+                  orders={filteredOrders}
+                  onOrderClick={setSelectedOrder}
+                  formatPickup={formatPickup}
+                  profile={profile}
                   onStatusChange={handleStatusChange}
                 />
               )}
@@ -438,7 +406,7 @@ export default function Dashboard() {
                      </div>
                      <button onClick={handlePrint} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400">🖨️</button>
                   </div>
-                  
+
                   <div className="flex-1 overflow-y-auto p-4 space-y-4 no-scrollbar">
                      {(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).length === 0 ? (
                        <div className="h-full flex flex-col items-center justify-center text-center p-8 opacity-50">
@@ -452,7 +420,7 @@ export default function Dashboard() {
                        ))
                      )}
                   </div>
-                  
+
                   <div className="p-6 bg-slate-50/50 border-t border-slate-50">
                      <button onClick={() => setShowManualSheet(true)} className="w-full py-4 bg-white border-2 border-indigo-100 text-indigo-600 font-black rounded-2xl hover:bg-indigo-50 transition-all text-sm">
                         + 새로운 주문 바로 등록
@@ -464,29 +432,29 @@ export default function Dashboard() {
         </main>
       </div>
 
-      {/* Premium Glassmorphic Bottom Bar (Mobile Only) */}
-      <div 
+      {/* Mobile Bottom Bar */}
+      <div
         className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp pointer-events-none"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
       >
          <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between mx-auto pointer-events-auto" style={{ width: 'calc(100% - 32px)' }}>
-            <button 
-              onClick={() => setViewMode("calendar")} 
+            <button
+              onClick={() => setViewMode("calendar")}
               className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "calendar" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
             >
                <span className="text-xl">📅</span>
                <span className="text-[10px] font-black uppercase tracking-tighter">캘린더</span>
             </button>
 
-            <button 
-              onClick={() => setShowManualSheet(true)} 
+            <button
+              onClick={() => setShowManualSheet(true)}
               className="flex-shrink-0 w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all mx-2"
             >
                <span className="text-2xl font-light">+</span>
             </button>
 
-            <button 
-              onClick={() => setViewMode("list")} 
+            <button
+              onClick={() => setViewMode("list")}
               className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "list" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
             >
                <span className="text-xl">📋</span>
@@ -496,12 +464,14 @@ export default function Dashboard() {
       </div>
 
       {selectedOrder && (
-        <OrderDetailModal 
-          order={selectedOrder} 
-          onClose={() => setSelectedOrder(null)} 
-          onStatusChange={handleStatusChange} 
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={handleStatusChange}
           onDelete={handleDeleteOrder}
-          onUpdated={(updatedOrder) => setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o))}
+          onUpdated={(updatedOrder) =>
+            setSelectedOrder(updatedOrder)
+          }
         />
       )}
       {showSettings && <SettingsModal store={activeStore} onClose={() => setShowSettings(false)} />}
@@ -509,7 +479,11 @@ export default function Dashboard() {
         <ManualOrderSheet
           storeId={profile.store_id || profile.id}
           onClose={() => setShowManualSheet(false)}
-          onSaved={() => mutate()}
+          onSaved={handleOrderSaved}
+          onUsageLimitExceeded={(used, limit) => {
+            setShowManualSheet(false);
+            setUsageLimitInfo({ used, limit });
+          }}
         />
       )}
 
@@ -527,35 +501,104 @@ export default function Dashboard() {
       {showOnboarding && (
         <OnboardingModal
           onClose={() => setShowOnboarding(false)}
-          onSaved={() => { setShowOnboarding(false); refreshStore(); mutate(); }}
+          onSaved={() => { setShowOnboarding(false); refreshStore(); }}
+        />
+      )}
+
+      {/* 무료 한도 초과 모달 */}
+      {usageLimitInfo && (
+        <UsageLimitModal
+          used={usageLimitInfo.used}
+          limit={usageLimitInfo.limit}
+          onClose={() => setUsageLimitInfo(null)}
         />
       )}
 
       {/* PC 프린트 전용 섹션 */}
-      <PrintSection 
-        dateLabel={selectedDay ? formatDate(selectedDay) : "오늘"} 
-        orders={selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders} 
-        totalRevenue={(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).reduce((acc, cur) => acc + cur.amount, 0)} 
+      <PrintSection
+        dateLabel={selectedDay ? formatDate(selectedDay) : "오늘"}
+        orders={selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders}
+        totalRevenue={(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).reduce((acc, cur) => acc + cur.amount, 0)}
       />
+
+      {/* 결제 요청 모달 */}
+      {showPaymentModal && profile?.store_id && (
+        <PaymentRequestModal
+          storeId={profile.store_id}
+          onClose={() => setShowPaymentModal(false)}
+        />
+      )}
     </>
   );
 }
 
+// ── 무료 사용량 배너 ────────────────────────────────────────────
+function UsageBanner({ storeId, onUpgrade }: { storeId: string; onUpgrade: () => void }) {
+  const monthlyCount = useLiveQuery(
+    () => {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+      return db.orders
+        .where("storeId")
+        .equals(storeId)
+        .filter((o) => !o.isDeleted && o.createdAt >= startOfMonth && o.createdAt <= endOfMonth)
+        .count() as Promise<number>;
+    },
+    [storeId]
+  );
+
+  const used = monthlyCount ?? 0;
+  const limit = 20;
+  const pct = Math.min((used / limit) * 100, 100);
+  const isNearLimit = used >= 15;
+  const isAtLimit = used >= limit;
+
+  if (used === 0) return null;
+
+  return (
+    <div className={`mb-6 px-4 py-3 rounded-2xl border flex items-center gap-3 text-sm ${isAtLimit ? "bg-red-50 border-red-100" : isNearLimit ? "bg-amber-50 border-amber-100" : "bg-slate-50 border-slate-100"}`}>
+      <div className="flex-1">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className={`font-black text-xs ${isAtLimit ? "text-red-600" : isNearLimit ? "text-amber-600" : "text-slate-500"}`}>
+            이번 달 무료 주문 {used} / {limit}건
+          </span>
+          {isNearLimit && (
+            <button onClick={onUpgrade} className="text-xs font-black px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+              Pro 버전으로 무제한 사용하기
+            </button>
+          )}
+        </div>
+        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${isAtLimit ? "bg-red-500" : isNearLimit ? "bg-amber-400" : "bg-indigo-500"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 유틸 함수 ────────────────────────────────────────────────────
 function isSameDay(d1: Date, d2: Date) {
-  return d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
+  return (
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate()
+  );
 }
 function formatDate(d: Date) {
   return `${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
+// ── 온보딩 모달 ─────────────────────────────────────────────────
 function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const { createStore, joinStoreByCode } = useStoreProvider();
   const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
-  // create
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [cat, setCat] = useState("dessert");
-  // join
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -589,7 +632,6 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn">
 
-        {/* ① 모드 선택 */}
         {mode === "choose" && (
           <>
             <div className="text-center mb-8">
@@ -598,17 +640,11 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
               <p className="text-slate-400 font-bold text-sm leading-relaxed">오더캐치를 시작하는 방법을 선택해주세요</p>
             </div>
             <div className="space-y-3">
-              <button
-                onClick={() => setMode("create")}
-                className="w-full p-5 rounded-2xl bg-indigo-600 text-white font-black text-left hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
-              >
+              <button onClick={() => setMode("create")} className="w-full p-5 rounded-2xl bg-indigo-600 text-white font-black text-left hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
                 <div className="text-xl mb-1">🏪 새 매장 만들기</div>
                 <div className="text-indigo-200 text-sm font-bold">사장님으로 시작하기 — 매장 정보를 등록하세요</div>
               </button>
-              <button
-                onClick={() => setMode("join")}
-                className="w-full p-5 rounded-2xl bg-slate-50 text-slate-700 font-black text-left hover:bg-slate-100 transition-all border border-slate-200"
-              >
+              <button onClick={() => setMode("join")} className="w-full p-5 rounded-2xl bg-slate-50 text-slate-700 font-black text-left hover:bg-slate-100 transition-all border border-slate-200">
                 <div className="text-xl mb-1">👥 초대 코드로 합류하기</div>
                 <div className="text-slate-400 text-sm font-bold">직원으로 참여하기 — 사장님에게 코드를 받으세요</div>
               </button>
@@ -616,12 +652,9 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           </>
         )}
 
-        {/* ② 매장 생성 */}
         {mode === "create" && (
           <>
-            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
-              ← 돌아가기
-            </button>
+            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">← 돌아가기</button>
             <h2 className="text-2xl font-black text-slate-900 mb-6">새 매장 만들기 🏪</h2>
             <div className="space-y-5">
               <div>
@@ -646,50 +679,44 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                   className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
               </div>
               {error && <p className="text-sm font-bold text-red-500">{error}</p>}
-              <button
-                disabled={loading || !name || !owner}
-                onClick={handleCreate}
-                className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-              >
-                {loading ? "매장 오픈 준비 중..." : "오더케치 시작하기"}
+              <button disabled={loading || !name || !owner} onClick={handleCreate}
+                className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
+                {loading ? "매장 오픈 준비 중..." : "오더캐치 시작하기"}
               </button>
             </div>
           </>
         )}
 
-        {/* ③ 코드로 합류 */}
         {mode === "join" && (
           <>
-            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">
-              ← 돌아가기
-            </button>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">잔두 코드로 합류 👥</h2>
+            <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">← 돌아가기</button>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">초대 코드로 합류 👥</h2>
             <p className="text-slate-400 text-sm font-bold mb-6 leading-relaxed">사장님으로부터 받은 초대 코드를 입력하세요</p>
             <div className="space-y-4">
-              <input
-                type="text" value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
-                placeholder="8자리 코드 입력 (ABCD1234)"
-                maxLength={8}
-                className="w-full p-4 bg-slate-50 rounded-2xl font-black text-lg tracking-widest text-center outline-none focus:ring-2 ring-indigo-100"
-              />
+              <input type="text" value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
+                placeholder="8자리 코드 입력 (ABCD1234)" maxLength={8}
+                className="w-full p-4 bg-slate-50 rounded-2xl font-black text-lg tracking-widest text-center outline-none focus:ring-2 ring-indigo-100" />
               {error && <p className="text-sm font-bold text-red-500 text-center">{error}</p>}
-              <button
-                disabled={loading || code.trim().length < 6}
-                onClick={handleJoin}
-                className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
-              >
+              <button disabled={loading || code.trim().length < 6} onClick={handleJoin}
+                className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
                 {loading ? "확인 중..." : "합류하기"}
               </button>
             </div>
           </>
         )}
-
       </div>
     </div>
   );
 }
 
-function ListView({ orders, onOrderClick, formatPickup, profile, onStatusChange }: { orders: Order[]; onOrderClick: (o: Order) => void; formatPickup: (s: string) => string; profile: any; onStatusChange: (id: string, s: Order["status"]) => void; }) {
+// ── 리스트 뷰 ───────────────────────────────────────────────────
+function ListView({ orders, onOrderClick, formatPickup, profile, onStatusChange }: {
+  orders: Order[];
+  onOrderClick: (o: Order) => void;
+  formatPickup: (s: string) => string;
+  profile: any;
+  onStatusChange: (id: string, s: Order["status"]) => void;
+}) {
   if (orders.length === 0) return <EmptyState filter="all" />;
 
   return (
@@ -742,9 +769,9 @@ function ListView({ orders, onOrderClick, formatPickup, profile, onStatusChange 
   );
 }
 
+// ── 빈 상태 ─────────────────────────────────────────────────────
 function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSettings?: () => void }) {
   if (filter === "all") {
-    // 첫 진입 시 — 무엇을 해야 하는지 단계별 안내
     return (
       <div style={{ padding: "40px 24px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
         <div style={{ fontSize: 52, marginBottom: 16 }}>📦</div>
@@ -807,12 +834,8 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
   );
 }
 
-// ── 프린트용 섹션 ──────────────────────────────────────────────
-function PrintSection({
-  dateLabel,
-  orders,
-  totalRevenue,
-}: {
+// ── 프린트 섹션 ──────────────────────────────────────────────────
+function PrintSection({ dateLabel, orders, totalRevenue }: {
   dateLabel: string;
   orders: Order[];
   totalRevenue: number;
@@ -828,12 +851,8 @@ function PrintSection({
       <div style={{ padding: "40px 32px", color: "#000", background: "#fff" }}>
         <div style={{ borderBottom: "3px solid #000", paddingBottom: 16, marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>
-              DAILY ORDER SHEET
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>
-              {dateLabel} 주문 내역
-            </p>
+            <h1 style={{ margin: 0, fontSize: 32, fontWeight: 900, letterSpacing: "-0.04em" }}>DAILY ORDER SHEET</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 16, fontWeight: 600, color: "#444" }}>{dateLabel} 주문 내역</p>
           </div>
           <div style={{ textAlign: "right" }}>
             <p style={{ margin: 0, fontSize: 13, color: "#666" }}>출력 일시: {new Date().toLocaleString("ko-KR")}</p>
