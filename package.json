@@ -23,8 +23,6 @@
     "swr": "^2.4.1"
   },
   "devDependencies": {
-    "@netlify/edge-functions": "^3.0.6",
-    "@netlify/plugin-nextjs": "^5.15.11",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
