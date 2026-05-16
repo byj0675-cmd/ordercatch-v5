@@ -129,8 +129,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return cleanup;
   }, [profile?.store_id, profile?.subscription_status]);
 
-  // ── 프로필 로드 ───────────────────────────────────────────
+  // ── 프로필 로드 (Cache-First) ─────────────────────────────
   const loadProfileData = async (userId: string) => {
+    // 1. 캐시 우선 로드 (UI 차단 방지)
+    try {
+      const cached = await db.profiles.get(userId);
+      if (cached) {
+        const p: Profile = {
+          id: cached.id,
+          email: cached.email,
+          store_name: cached.store_name,
+          store_slug: cached.store_slug,
+          category: cached.category,
+          owner_name: cached.owner_name,
+          store_id: cached.store_id,
+          role: cached.role,
+          subscription_status: cached.subscription_status,
+        };
+        setProfile(p);
+        if (p.store_id) {
+          await loadStoreInfoFromCache(p.store_id);
+        }
+        // 캐시가 있으면 즉시 로딩을 해제하여 UI를 보여줌
+        setLoading(false);
+      }
+    } catch (err) {
+      console.warn("Failed to load profile from cache", err);
+    }
+
+    // 2. 백그라운드 네트워크 동기화
     try {
       const { data, error } = await supabase
         .from("profiles")
@@ -166,45 +193,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await loadStoreInfo(p.store_id, p);
       }
     } catch (err) {
-      // 오프라인 또는 에러 시 캐시에서 복원
-      const cached = await db.profiles.get(userId);
-      if (cached) {
-        const p: Profile = {
-          id: cached.id,
-          email: cached.email,
-          store_name: cached.store_name,
-          store_slug: cached.store_slug,
-          category: cached.category,
-          owner_name: cached.owner_name,
-          store_id: cached.store_id,
-          role: cached.role,
-          subscription_status: cached.subscription_status,
-        };
-        setProfile(p);
-        if (p.store_id) await loadStoreInfoFromCache(p.store_id);
-      }
+      console.warn("Background profile sync failed", err);
     } finally {
+      // 캐시가 없었던 경우를 대비해 확실히 로딩 해제
       setLoading(false);
     }
   };
 
   const loadStoreInfo = async (storeId: string, p?: Profile) => {
-    const { data, error } = await supabase
-      .from("stores")
-      .select("*")
-      .eq("id", storeId)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("stores")
+        .select("*")
+        .eq("id", storeId)
+        .single();
 
-    if (!error && data) {
-      setStoreInfo(data as StoreInfo);
-      await db.stores.put({ ...data, updatedAt: new Date().toISOString() });
+      if (!error && data) {
+        setStoreInfo(data as StoreInfo);
+        await db.stores.put({ ...data, updatedAt: new Date().toISOString() });
 
-      // Pro 유저: 오더 pull
-      if (p?.subscription_status === "pro") {
-        pullFromCloud(supabase, storeId, data.name, p.category || "dessert");
+        // Pro 유저: 오더 pull
+        if (p?.subscription_status === "pro") {
+          pullFromCloud(supabase, storeId, data.name, p.category || "dessert");
+        }
+      } else {
+        await loadStoreInfoFromCache(storeId);
       }
-    } else {
-      await loadStoreInfoFromCache(storeId);
+    } catch (err) {
+      console.warn("Background store sync failed", err);
     }
   };
 

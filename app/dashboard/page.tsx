@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
+import Dexie from "dexie";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   STATUS_CONFIG,
@@ -85,10 +86,10 @@ export default function Dashboard() {
     () => {
       if (!storeId) return Promise.resolve([] as LocalOrder[]);
       return db.orders
-        .where("storeId")
-        .equals(storeId)
+        .where("[storeId+pickupDate]")
+        .between([storeId, Dexie.minKey], [storeId, Dexie.maxKey])
         .filter((o) => !o.isDeleted)
-        .sortBy("pickupDate") as Promise<LocalOrder[]>;
+        .toArray() as Promise<LocalOrder[]>;
     },
     [storeId]
   );

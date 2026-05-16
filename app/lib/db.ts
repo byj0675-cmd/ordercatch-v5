@@ -68,6 +68,10 @@ export class OrderCatchDB extends Dexie {
       profiles: "id",
       stores: "id, slug",
     });
+
+    this.version(2).stores({
+      orders: "id, storeId, [storeId+pickupDate], status, pickupDate, isDirty, isDeleted, updatedAt, createdAt",
+    });
   }
 }
 

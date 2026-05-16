@@ -103,26 +103,35 @@ export async function pullFromCloud(
       supabaseRowToLocal(row, storeName, storeType)
     );
 
-    // LWW merge: 로컬 updatedAt vs 원격 updatedAt 비교
-    for (const remote of remoteOrders) {
-      const local = await db.orders.get(remote.id);
+    // LWW merge: 로컬 updatedAt vs 원격 updatedAt 비교 (Bulk Operations 최적화)
+    const remoteIds = remoteOrders.map(o => o.id);
+    const localOrders = await db.orders.bulkGet(remoteIds);
+    const ordersToPut: LocalOrder[] = [];
+
+    for (let i = 0; i < remoteOrders.length; i++) {
+      const remote = remoteOrders[i];
+      const local = localOrders[i];
 
       if (!local) {
         // 로컬에 없음 → 원격 데이터 저장
-        await db.orders.put(remote);
+        ordersToPut.push({ ...remote, syncedAt: now });
       } else if (!local.isDirty) {
         // 로컬이 클린 상태 → 원격 우선 (안전)
-        await db.orders.put({ ...remote, syncedAt: now });
+        ordersToPut.push({ ...remote, syncedAt: now });
       } else {
         // 로컬에 더티 변경 있음 → updatedAt 비교 (LWW)
         const localTime = new Date(local.updatedAt || local.createdAt).getTime();
         const remoteTime = new Date(remote.updatedAt || remote.createdAt).getTime();
         if (remoteTime > localTime) {
           // 원격이 더 새것 → 원격 우선
-          await db.orders.put({ ...remote, syncedAt: now });
+          ordersToPut.push({ ...remote, syncedAt: now });
         }
         // else: 로컬이 더 새것 → 로컬 유지 (isDirty=true이므로 다음 push에서 반영됨)
       }
+    }
+
+    if (ordersToPut.length > 0) {
+      await db.orders.bulkPut(ordersToPut);
     }
   } catch (err) {
     console.warn("[SyncEngine] Pull failed:", err);
