@@ -27,6 +27,7 @@ const DashboardSkeleton = dynamic(() => import("../components/SkeletonUI").then(
 const OrderCard = dynamic(() => import("../components/OrderCard"), { ssr: false });
 const UsageLimitModal = dynamic(() => import("../components/UsageLimitModal"), { ssr: false });
 const PaymentRequestModal = dynamic(() => import("../components/PaymentRequestModal"), { ssr: false });
+const AnalyticsModal = dynamic(() => import("../components/AnalyticsModal"), { ssr: false });
 
 type ViewMode = "calendar" | "list";
 
@@ -71,6 +72,7 @@ export default function Dashboard() {
   const [isPasting, setIsPasting] = useState(false);
   const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
 
   const {
     profile, storeInfo, loading, isMaster, isPro,
@@ -211,6 +213,7 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
+      document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
       await supabase.auth.signOut();
       router.replace("/");
       showToast("로그아웃 되었습니다.", "info", "👋");
@@ -335,7 +338,7 @@ export default function Dashboard() {
           )}
 
           {/* 스태프 모드 라벨 */}
-          {!isMaster && (
+          {!isMaster && profile?.store_id && (
             <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-sm font-bold text-amber-700">
               <span>👤</span>
               <span>스태프 모드 — 주문 조회 및 상태 변경만 가능합니다</span>
@@ -368,6 +371,12 @@ export default function Dashboard() {
                  </div>
 
                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setShowAnalyticsModal(true)}
+                      className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm text-sm hover:bg-slate-50 active:scale-[0.98] transition-all hidden sm:flex items-center gap-1.5"
+                    >
+                      <span>📊</span> 매출 통계
+                    </button>
                     <button
                       onClick={() => setShowManualSheet(true)}
                       className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
@@ -529,6 +538,12 @@ export default function Dashboard() {
           onClose={() => setShowPaymentModal(false)}
         />
       )}
+
+      <AnalyticsModal
+        isOpen={showAnalyticsModal}
+        onClose={() => setShowAnalyticsModal(false)}
+        orders={orders}
+      />
     </>
   );
 }
@@ -599,6 +614,7 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
   const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
+  const [storeSlug, setStoreSlug] = useState("");
   const [cat, setCat] = useState("dessert");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -606,11 +622,16 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
   const handleCreate = async () => {
     if (!name || !owner) return;
+    // 간단한 영문/숫자 검증
+    if (storeSlug && !/^[a-z0-9-]+$/.test(storeSlug)) {
+      setError("매장 ID는 영문 소문자, 숫자, 하이픈(-)만 사용 가능합니다.");
+      return;
+    }
     setLoading(true);
-    const ok = await createStore({ store_name: name, category: cat, owner_name: owner });
+    const ok = await createStore({ store_name: name, category: cat, owner_name: owner, store_slug: storeSlug });
     setLoading(false);
     if (ok) { onSaved(); }
-    else setError("매장 생성에 실패했습니다. 다시 시도해주세요.");
+    else setError("매장 생성에 실패했습니다. 혹시 이미 사용 중인 매장 ID인지 확인해주세요.");
   };
 
   const handleJoin = async () => {
@@ -631,11 +652,21 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-      <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn">
+      <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn relative">
+        <button 
+          onClick={async () => {
+            document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
+            await supabase.auth.signOut();
+            window.location.href = "/";
+          }}
+          className="absolute top-6 right-6 text-xs font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          로그아웃
+        </button>
 
         {mode === "choose" && (
           <>
-            <div className="text-center mb-8">
+            <div className="text-center mb-8 mt-2">
               <div className="text-4xl mb-3">🎉</div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">환영합니다!</h2>
               <p className="text-slate-400 font-bold text-sm leading-relaxed">오더캐치를 시작하는 방법을 선택해주세요</p>
@@ -679,6 +710,11 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
                 <input type="text" value={owner} onChange={e=>setOwner(e.target.value)} placeholder="사장님 성함"
                   className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
               </div>
+              <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">매장 ID (선택)</label>
+                <input type="text" value={storeSlug} onChange={e=>setStoreSlug(e.target.value.toLowerCase())} placeholder="예: amanda-cake (고객 공유용 주소로 사용됨)"
+                  className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
+              </div>
               {error && <p className="text-sm font-bold text-red-500">{error}</p>}
               <button disabled={loading || !name || !owner} onClick={handleCreate}
                 className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
@@ -692,7 +728,7 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
           <>
             <button onClick={() => setMode("choose")} className="mb-4 text-sm font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1">← 돌아가기</button>
             <h2 className="text-2xl font-black text-slate-900 mb-2">초대 코드로 합류 👥</h2>
-            <p className="text-slate-400 text-sm font-bold mb-6 leading-relaxed">사장님으로부터 받은 초대 코드를 입력하세요</p>
+            <p className="text-slate-400 text-sm font-bold mb-6 leading-relaxed">사장님이 보내주신 대시보드 공유용 <span className="text-indigo-600">초대 코드(인증번호)</span>를 입력하세요.</p>
             <div className="space-y-4">
               <input type="text" value={code} onChange={e=>setCode(e.target.value.toUpperCase())}
                 placeholder="8자리 코드 입력 (ABCD1234)" maxLength={8}

@@ -345,14 +345,24 @@ function LandingContent() {
       </div>
 
       {/* Footer */}
-      <footer style={{ padding: "28px 24px", background: "#111", textAlign: "center" }}>
-        <Image src="/logo.png" alt="오더캐치" width={90} height={20} style={{ height: 20, width: "auto", filter: "brightness(0) invert(1) opacity(0.35)", marginBottom: 12 }} />
-        <div style={{ fontSize: 12, color: "#374151" }}>© 2026 오더캐치 · 소상공인 주문 장부 서비스</div>
-        <div style={{ marginTop: 10, display: "flex", justifyContent: "center", gap: 20 }}>
-          {["이용약관", "개인정보처리방침", "문의"].map(t => (
-            <span key={t} style={{ fontSize: 12, color: "#4b5563", cursor: "pointer" }}>{t}</span>
-          ))}
+      <footer style={{ padding: "40px 24px", background: "#111", textAlign: "center" }}>
+        <Image src="/logo.png" alt="오더캐치" width={90} height={20} style={{ height: 20, width: "auto", filter: "brightness(0) invert(1) opacity(0.35)", marginBottom: 20 }} />
+        
+        <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.8, marginBottom: 16 }}>
+          상호명: 두근상사 | 대표자: 변영조<br />
+          사업자등록번호: 140-43-00585 | 통신판매업신고번호: 제 2019-광주북구-0099 호<br />
+          고객센터: 010-4885-6675 | 이메일 (고객지원 및 제휴/협업 문의): byj0675@naver.com<br />
+          주소: 광주광역시 북구 군왕로 311, 104동 401호 (각화동, 서희스타힐스)
         </div>
+
+        <div style={{ marginTop: 16, marginBottom: 20, display: "flex", justifyContent: "center", gap: 20 }}>
+          <a href="/terms" style={{ fontSize: 12, color: "#4b5563", textDecoration: "none", cursor: "pointer" }}>이용약관</a>
+          <a href="/privacy" style={{ fontSize: 12, color: "#4b5563", textDecoration: "none", cursor: "pointer" }}>개인정보처리방침</a>
+          <a href="/refund-policy" style={{ fontSize: 12, color: "#4b5563", textDecoration: "none", cursor: "pointer" }}>환불/해지 정책</a>
+          <span style={{ fontSize: 12, color: "#4b5563", cursor: "pointer" }}>문의</span>
+        </div>
+
+        <div style={{ fontSize: 11, color: "#374151" }}>© 2026 오더캐치 · 소상공인 주문 장부 서비스</div>
       </footer>
 
       <style>{`

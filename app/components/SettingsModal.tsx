@@ -19,7 +19,7 @@ interface TeamMember {
 }
 
 export default function SettingsModal({ store, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "webhook" | "link" | "team">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "webhook" | "link" | "team" | "subscription">("general");
   const { profile, storeInfo, isMaster, updateStoreProfile } = useStoreProvider();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -104,6 +104,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const TABS = [
     { id: "general", label: "⚙️ 일반" },
     { id: "team", label: "👥 팀" },
+    { id: "subscription", label: "💳 구독 관리" },
     { id: "webhook", label: "🔗 웹훅" },
     { id: "link", label: "🛒 주문 링크" },
   ] as const;
@@ -352,6 +353,53 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* ─── 구독 관리 탭 ─── */}
+          {activeTab === "subscription" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+              <div style={{ padding: "16px 20px", background: profile?.subscription_status === "pro" ? "linear-gradient(135deg, #4f46e5, #7c3aed)" : "#f8fafc", borderRadius: 16, border: profile?.subscription_status === "pro" ? "none" : "1px solid #e2e8f0" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: profile?.subscription_status === "pro" ? "rgba(255,255,255,0.8)" : "#64748b", marginBottom: 4 }}>
+                  현재 이용 중인 플랜
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 900, color: profile?.subscription_status === "pro" ? "#fff" : "#0f172a" }}>
+                  {profile?.subscription_status === "pro" ? "⚡ PRO 무제한 요금제" : "🌱 무료 요금제"}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text-primary)", marginBottom: 8 }}>
+                  환불 규정 및 해지 안내
+                </div>
+                <div style={{ padding: "16px", background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                  <ul style={{ margin: 0, paddingLeft: 18, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <li><strong style={{ color: "var(--text-primary)" }}>전액 환불:</strong> 결제일로부터 7일 이내에 서비스 이용 이력(주문 생성 등)이 없는 경우 전액 환불됩니다.</li>
+                    <li><strong style={{ color: "var(--text-primary)" }}>환불 불가:</strong> 7일이 경과하거나 1회 이상 기능을 사용한 경우, 해당 월 요금은 환불되지 않으며 다음 결제일부터 자동으로 해지됩니다.</li>
+                    <li><strong style={{ color: "var(--text-primary)" }}>정기 결제 해지:</strong> 아래 버튼을 통해 언제든지 위약금 없이 해지 신청을 하실 수 있습니다.</li>
+                  </ul>
+                  <a href="/refund-policy" target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: 12, color: "var(--accent)", fontWeight: 700, textDecoration: "none" }}>
+                    자세한 환불 정책 전문 보기 →
+                  </a>
+                </div>
+              </div>
+
+              {profile?.subscription_status === "pro" && (
+                <div style={{ marginTop: 8 }}>
+                  <button 
+                    onClick={() => {
+                      if(confirm("정말 구독을 해지하시겠습니까? 이번 결제 주기까지만 PRO 기능이 유지됩니다.")) {
+                        showToast("준비 중인 기능입니다. 고객센터에 문의해주세요.", "info");
+                      }
+                    }}
+                    style={{ width: "100%", padding: "14px", background: "#fff", border: "1px solid #fecaca", borderRadius: 12, color: "#ef4444", fontWeight: 700, fontSize: 14, cursor: "pointer", transition: "all 0.2s" }}
+                    onMouseOver={(e) => (e.currentTarget.style.background = "#fef2f2")}
+                    onMouseOut={(e) => (e.currentTarget.style.background = "#fff")}
+                  >
+                    정기 결제 해지하기
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

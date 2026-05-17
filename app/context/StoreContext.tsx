@@ -76,7 +76,7 @@ interface StoreContextProps {
   updateOrderFields: (orderId: string, fields: Partial<LocalOrder>) => Promise<void>;
   // 매장 관리
   updateStoreProfile: (data: { store_name?: string; category?: string; owner_name?: string }) => Promise<boolean>;
-  createStore: (data: { store_name: string; category: string; owner_name: string }) => Promise<boolean>;
+  createStore: (data: { store_name: string; category: string; owner_name: string; store_slug?: string }) => Promise<boolean>;
   joinStoreByCode: (code: string) => Promise<{ success: boolean; error?: string }>;
   refreshStore: () => Promise<void>;
   loginAsMockUser: () => void;
@@ -108,8 +108,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── Auth 감지 ─────────────────────────────────────────────
   useEffect(() => {
+    // 개발용 mock 로그인 체크
+    const isMock = typeof document !== "undefined" && document.cookie.includes("ordercatch-mock-user=true");
+    if (isMock) {
+      loginAsMockUser();
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (typeof document !== "undefined" && document.cookie.includes("ordercatch-mock-user=true")) {
+          return; // mock 모드면 Supabase 세션 무시
+        }
+
         if (session?.user) {
           await loadProfileData(session.user.id);
         } else {
@@ -320,19 +330,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── 매장 관리 ─────────────────────────────────────────────
 
-  const createStore = async (data: { store_name: string; category: string; owner_name: string }) => {
+  const createStore = async (data: { store_name: string; category: string; owner_name: string; store_slug?: string }) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return false;
 
-      const slug =
-        data.store_name
-          .toLowerCase()
-          .replace(/[^a-z0-9가-힣]/g, "-")
-          .replace(/-+/g, "-")
-          .slice(0, 30) +
-        "-" +
-        Math.random().toString(36).slice(2, 6);
+      const slug = data.store_slug && data.store_slug.trim() !== ""
+        ? data.store_slug.trim().toLowerCase()
+        : data.store_name
+            .toLowerCase()
+            .replace(/[^a-z0-9가-힣]/g, "-")
+            .replace(/-+/g, "-")
+            .slice(0, 30) +
+          "-" +
+          Math.random().toString(36).slice(2, 6);
 
       const { data: newStore, error: storeError } = await supabase
         .from("stores")
