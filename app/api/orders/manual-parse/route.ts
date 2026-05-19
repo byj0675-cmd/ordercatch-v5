@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { parseOrderWithGemini } from "@/app/lib/gemini";
+import { parseOrderStreamWithGemini } from "@/app/lib/gemini";
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { text, storeId } = body;
+    const { text, storeId, enabledFields } = body;
 
     if (!text) {
       return NextResponse.json({ error: "주문 텍스트가 없습니다." }, { status: 400 });
@@ -16,22 +16,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "매장 식별 정보(storeId)가 없습니다." }, { status: 400 });
     }
 
-    const parsedOrder = await parseOrderWithGemini(text);
+    const stream = await parseOrderStreamWithGemini(text, enabledFields);
 
-    if (!parsedOrder) {
-      return NextResponse.json({ error: "AI 분석에 실패했습니다." }, { status: 500 });
-    }
-
-    return NextResponse.json({ ...parsedOrder });
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "Connection": "keep-alive",
+      },
+    });
   } catch (err: any) {
     console.error("[Backend Error Details]:", err);
-    // Return specific model connection error if thrown, otherwise fallback to generic
     const errorMessage = err.message || "AI 분석 과정에서 알 수 없는 서버 오류가 발생했습니다.";
-    
-    // Detailed error trace for debugging (helpful for Vercel logs)
     return NextResponse.json({ 
         error: errorMessage,
-        details: process.env.NODE_ENV !== "production" ? err.stack : undefined,
         code: err.code || "INTERNAL_SERVER_ERROR"
     }, { status: 500 });
   }

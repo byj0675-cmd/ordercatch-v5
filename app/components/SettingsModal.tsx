@@ -19,7 +19,7 @@ interface TeamMember {
 }
 
 export default function SettingsModal({ store, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "webhook" | "link" | "team" | "subscription">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "fields" | "team" | "subscription" | "webhook" | "link">("general");
   const { profile, storeInfo, isMaster, updateStoreProfile } = useStoreProvider();
   
   const [isEditing, setIsEditing] = useState(false);
@@ -27,6 +27,27 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const [editCategory, setEditCategory] = useState(storeInfo?.category || profile?.category || store.type);
   const [editOwner, setEditOwner] = useState(profile?.owner_name || store.owner);
   const [isSaving, setIsSaving] = useState(false);
+
+  // 입력 필드 활성화 설정 상태
+  const [fieldsConfig, setFieldsConfig] = useState<Record<string, boolean>>({
+    customerName: true,
+    productName: true,
+    pickupDate: true,
+    phone: true,
+    address: true,
+    amount: true,
+    memo: true,
+  });
+
+  interface CustomFieldItem {
+    id: string;
+    name: string;
+    enabled: boolean;
+  }
+
+  // 커스텀 필드 목록
+  const [customFields, setCustomFields] = useState<CustomFieldItem[]>([]);
+  const [newFieldName, setNewFieldName] = useState("");
 
   // 팀 멤버 목록
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -42,10 +63,33 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const webhookUrl = `${baseUrl}/api/webhook/kakao?storeSlug=${finalStoreSlug}`;
   const orderLink = `${baseUrl}/order/${finalStoreSlug}`;
 
+  // LocalStorage 필드 설정 로드
+  useEffect(() => {
+    if (profile?.store_id) {
+      const saved = localStorage.getItem(`ordercatch_fields_config_${profile.store_id}`);
+      if (saved) {
+        try {
+          setFieldsConfig(JSON.parse(saved));
+        } catch (e) {
+          console.error("Failed to parse fields config", e);
+        }
+      }
+      
+      const savedCustom = localStorage.getItem(`ordercatch_custom_fields_${profile.store_id}`);
+      if (savedCustom) {
+        try {
+          setCustomFields(JSON.parse(savedCustom));
+        } catch (e) {
+          console.error("Failed to parse custom fields", e);
+        }
+      }
+    }
+  }, [profile?.store_id]);
+
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      showToast(`${label} 복사 완료!`, "success", "📋");
+      showToast(`${label} 복사 완료!`, "success");
     } catch {
       showToast("복사 실패", "error");
     }
@@ -58,7 +102,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
       category: editCategory,
       owner_name: editOwner
     });
-    setIsSaving(false);
+    setIsSaving(true);
     
     if (success) {
       showToast("매장 정보가 성공적으로 수정되었습니다.", "success");
@@ -66,6 +110,79 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
     } else {
       showToast("저장 중 오류가 발생했습니다.", "error");
     }
+    setIsSaving(false);
+  };
+
+  const toggleField = (fieldKey: string) => {
+    // 고객명과 상품명은 강제 필수 필드로 지정
+    if (fieldKey === "customerName" || fieldKey === "productName") {
+      showToast("고객명과 상품명은 주문 등록을 위한 필수 필드입니다.", "warning");
+      return;
+    }
+
+    const nextConfig = {
+      ...fieldsConfig,
+      [fieldKey]: !fieldsConfig[fieldKey],
+    };
+    setFieldsConfig(nextConfig);
+
+    if (profile?.store_id) {
+      localStorage.setItem(
+        `ordercatch_fields_config_${profile.store_id}`,
+        JSON.stringify(nextConfig)
+      );
+      // 이벤트 발행하여 PasteBoard 등에서 상태 즉시 업데이트
+      window.dispatchEvent(new Event("ordercatch_fields_changed"));
+    }
+  };
+
+  const handleAddCustomField = () => {
+    if (!newFieldName.trim()) return;
+    const cleanName = newFieldName.trim();
+    
+    // 기본 필드 명칭과 중복 방지
+    const defaultLabels = ["고객명", "상품명", "예약/픽업일시", "연락처", "배송주소", "금액", "메모"];
+    if (defaultLabels.includes(cleanName)) {
+      showToast("기본 주문서 항목과 동일한 이름은 추가할 수 없습니다.", "warning");
+      return;
+    }
+
+    if (customFields.some(f => f.name === cleanName)) {
+      showToast("이미 존재하는 항목 이름입니다.", "warning");
+      return;
+    }
+
+    const nextCustom = [
+      ...customFields,
+      { id: Date.now().toString(), name: cleanName, enabled: true }
+    ];
+    setCustomFields(nextCustom);
+    setNewFieldName("");
+    
+    if (profile?.store_id) {
+      localStorage.setItem(`ordercatch_custom_fields_${profile.store_id}`, JSON.stringify(nextCustom));
+      window.dispatchEvent(new Event("ordercatch_fields_changed"));
+    }
+    showToast("새 항목이 추가되었습니다.", "success");
+  };
+
+  const toggleCustomField = (id: string) => {
+    const nextCustom = customFields.map(f => f.id === id ? { ...f, enabled: !f.enabled } : f);
+    setCustomFields(nextCustom);
+    if (profile?.store_id) {
+      localStorage.setItem(`ordercatch_custom_fields_${profile.store_id}`, JSON.stringify(nextCustom));
+      window.dispatchEvent(new Event("ordercatch_fields_changed"));
+    }
+  };
+
+  const handleDeleteCustomField = (id: string) => {
+    const nextCustom = customFields.filter(f => f.id !== id);
+    setCustomFields(nextCustom);
+    if (profile?.store_id) {
+      localStorage.setItem(`ordercatch_custom_fields_${profile.store_id}`, JSON.stringify(nextCustom));
+      window.dispatchEvent(new Event("ordercatch_fields_changed"));
+    }
+    showToast("항목이 삭제되었습니다.", "info");
   };
 
   // 팀 탭 선택 시 멤버 로드
@@ -93,20 +210,21 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   };
 
   const categoryOptions = [
-    { id: "dessert", label: "🍬 디저트" },
-    { id: "nail", label: "💅 네일" },
-    { id: "bakery", label: "🥐 베이커리" },
-    { id: "flower", label: "🌸 플라워" },
-    { id: "restaurant", label: "🍽️ 식당" },
-    { id: "other", label: "✨ 기타" }
+    { id: "dessert", label: "디저트" },
+    { id: "nail", label: "네일" },
+    { id: "bakery", label: "베이커리" },
+    { id: "flower", label: "플라워" },
+    { id: "restaurant", label: "식당" },
+    { id: "other", label: "기타" }
   ];
 
   const TABS = [
-    { id: "general", label: "⚙️ 일반" },
-    { id: "team", label: "👥 팀" },
-    { id: "subscription", label: "💳 구독 관리" },
-    { id: "webhook", label: "🔗 웹훅" },
-    { id: "link", label: "🛒 주문 링크" },
+    { id: "general", label: "일반" },
+    { id: "fields", label: "주문서 필드 설정" },
+    { id: "team", label: "팀 관리" },
+    { id: "subscription", label: "구독 관리" },
+    { id: "webhook", label: "웹훅 연동", isBeta: true },
+    { id: "link", label: "주문 링크", isBeta: true },
   ] as const;
 
   return (
@@ -139,13 +257,16 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
               style={{
                 width: 44, height: 44, borderRadius: 12,
                 background: store.color + "18",
-                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22,
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
-              {store.avatar}
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={store.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+              </svg>
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 17, color: "var(--text-primary)" }}>
+              <div style={{ fontWeight: 800, fontSize: 17, color: "var(--text-primary)" }}>
                 매장 설정
               </div>
               <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 1 }}>
@@ -172,14 +293,30 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               style={{
-                padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer",
-                fontSize: 13, fontWeight: 600,
+                padding: "7px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                fontSize: 13, fontWeight: 700,
                 background: activeTab === tab.id ? "var(--accent)" : "transparent",
                 color: activeTab === tab.id ? "#fff" : "var(--text-secondary)",
                 transition: "all 0.15s",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6
               }}
             >
-              {tab.label}
+              <span>{tab.label}</span>
+              {"isBeta" in tab && tab.isBeta && (
+                <span style={{
+                  fontSize: 10,
+                  padding: "1px 5px",
+                  borderRadius: 4,
+                  background: activeTab === tab.id ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.06)",
+                  color: activeTab === tab.id ? "#fff" : "#94a3b8",
+                  fontWeight: 800,
+                  transition: "all 0.15s"
+                }}>
+                  준비중
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -196,7 +333,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   <InfoRow label="업종" value={categoryOptions.find(c => c.id === finalCategory)?.label || "기타"} />
                   <InfoRow label="대표자" value={finalOwner} />
                   <InfoRow label="매장 ID" value={finalStoreSlug} mono />
-                  <InfoRow label="내 역할" value={isMaster ? "👑 마스터 (사장님)" : "👤 스태프 (직원)"} />
+                  <InfoRow label="내 역할" value={isMaster ? "마스터 (사장님)" : "스태프 (직원)"} />
                   
                   {isMaster && (
                     <button
@@ -204,17 +341,17 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                       style={{
                         marginTop: 8, padding: "12px 16px", background: "rgba(0,122,255,0.08)",
                         borderRadius: 12, border: "1px solid rgba(0,122,255,0.2)", fontSize: 13,
-                        color: "var(--accent)", fontWeight: 600, cursor: "pointer", display: "flex", justifyContent: "center"
+                        color: "var(--accent)", fontWeight: 700, cursor: "pointer", display: "flex", justifyContent: "center"
                       }}
                     >
-                      ✏️ 매장 정보 수정하기
+                      매장 정보 수정하기
                     </button>
                   )}
                 </>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>매장명</label>
+                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 700 }}>매장명</label>
                     <input 
                       type="text" value={editName} onChange={e => setEditName(e.target.value)}
                       style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, outline: "none" }}
@@ -222,7 +359,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   </div>
                   
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>업종 카테고리</label>
+                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 700 }}>업종 카테고리</label>
                     <select
                       value={editCategory} onChange={e => setEditCategory(e.target.value)}
                       style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, outline: "none", background: "#fff" }}
@@ -232,7 +369,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   </div>
                   
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 600 }}>대표자 성함</label>
+                    <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 700 }}>대표자 성함</label>
                     <input 
                       type="text" value={editOwner} onChange={e => setEditOwner(e.target.value)}
                       style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid var(--border)", fontSize: 14, outline: "none" }}
@@ -242,19 +379,226 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
                     <button 
                       onClick={() => setIsEditing(false)} disabled={isSaving}
-                      style={{ flex: 1, padding: "10px", borderRadius: 8, background: "var(--bg-secondary)", border: "none", fontWeight: 600, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "10px", borderRadius: 8, background: "var(--bg-secondary)", border: "none", fontWeight: 700, cursor: "pointer" }}
                     >
                       취소
                     </button>
                     <button 
                       onClick={handleSave} disabled={isSaving}
-                      style={{ flex: 1, padding: "10px", borderRadius: 8, background: "var(--accent)", color: "#fff", border: "none", fontWeight: 600, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "10px", borderRadius: 8, background: "var(--accent)", color: "#fff", border: "none", fontWeight: 700, cursor: "pointer" }}
                     >
                       {isSaving ? "저장 중..." : "저장"}
                     </button>
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ─── 입력 필드 커스텀 탭 ─── */}
+          {activeTab === "fields" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, marginBottom: 8 }}>
+                복붙 마법사 및 수기 입력으로 주문 등록 시 노출할 주문서 항목을 활성화/비활성화할 수 있습니다. 매장 운영에 꼭 필요한 필드만 활성화하여 한눈에 들어오는 심플한 입력창을 만들어보세요.
+              </div>
+
+              {/* 기본 필드 영역 */}
+              <div style={{ background: "#f8fafc", borderRadius: 16, border: "1px solid rgba(0,0,0,0.06)", overflow: "hidden" }}>
+                {([
+                  { key: "customerName", label: "고객명", required: true },
+                  { key: "productName", label: "상품명", required: true },
+                  { key: "pickupDate", label: "예약/픽업일시", required: false },
+                  { key: "phone", label: "연락처", required: false },
+                  { key: "address", label: "배송주소", required: false },
+                  { key: "amount", label: "금액", required: false },
+                  { key: "memo", label: "메모", required: false },
+                ] as const).map((field, idx, arr) => {
+                  const isEnabled = fieldsConfig[field.key];
+                  return (
+                    <div 
+                      key={field.key} 
+                      onClick={() => !field.required && toggleField(field.key)}
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "space-between", 
+                        padding: "14px 20px", 
+                        borderBottom: idx < arr.length - 1 || customFields.length > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                        cursor: field.required ? "default" : "pointer",
+                        background: field.required ? "rgba(0,0,0,0.01)" : "transparent"
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: field.required ? "#94a3b8" : "var(--text-primary)" }}>
+                          {field.label}
+                        </span>
+                        {field.required && (
+                          <span style={{ marginLeft: 8, fontSize: 11, background: "#e2e8f0", color: "#64748b", padding: "2px 6px", borderRadius: 6, fontWeight: 700 }}>
+                            필수 항목
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <div style={{
+                          width: 44,
+                          height: 24,
+                          borderRadius: 12,
+                          background: isEnabled ? "var(--accent)" : "#cbd5e1",
+                          position: "relative",
+                          transition: "background 0.2s ease",
+                          opacity: field.required ? 0.6 : 1
+                        }}>
+                          <div style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            position: "absolute",
+                            top: 3,
+                            left: isEnabled ? 23 : 3,
+                            transition: "left 0.2s ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+                          }} />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* 커스텀 필드 영역 */}
+                {customFields.map((field, idx) => {
+                  return (
+                    <div 
+                      key={field.id}
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "space-between", 
+                        padding: "14px 20px", 
+                        borderBottom: idx < customFields.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                        background: "transparent"
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
+                          {field.name}
+                        </span>
+                        <span style={{ fontSize: 10, background: "rgba(79, 70, 229, 0.08)", color: "var(--accent)", padding: "2px 6px", borderRadius: 6, fontWeight: 700 }}>
+                          맞춤 항목
+                        </span>
+                      </div>
+                      
+                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                        {/* 토글 스위치 */}
+                        <div 
+                          onClick={() => toggleCustomField(field.id)}
+                          style={{
+                            width: 44,
+                            height: 24,
+                            borderRadius: 12,
+                            background: field.enabled ? "var(--accent)" : "#cbd5e1",
+                            position: "relative",
+                            transition: "background 0.2s ease",
+                            cursor: "pointer"
+                          }}
+                        >
+                          <div style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "#fff",
+                            position: "absolute",
+                            top: 3,
+                            left: field.enabled ? 23 : 3,
+                            transition: "left 0.2s ease",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.2)"
+                          }} />
+                        </div>
+
+                        {/* 삭제 버튼 */}
+                        <button 
+                          onClick={() => handleDeleteCustomField(field.id)}
+                          style={{ 
+                            background: "none", 
+                            border: "none", 
+                            padding: 4, 
+                            cursor: "pointer", 
+                            color: "#ef4444", 
+                            display: "flex", 
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 6,
+                            transition: "background 0.2s"
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(239, 68, 68, 0.08)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "none"}
+                        >
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* 커스텀 필드 추가 폼 */}
+              <div style={{ 
+                marginTop: 6, 
+                padding: 16, 
+                background: "rgba(79, 70, 229, 0.03)", 
+                border: "1.5px dashed rgba(79, 70, 229, 0.15)", 
+                borderRadius: 16,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--accent)" }}>나만의 항목 추가</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input 
+                    type="text" 
+                    value={newFieldName}
+                    onChange={e => setNewFieldName(e.target.value)}
+                    placeholder="예: 맛 선택, 레터링 문구, 디자인 옵션"
+                    style={{ 
+                      flex: 1, 
+                      padding: "10px 14px", 
+                      borderRadius: 10, 
+                      border: "1px solid #cbd5e1", 
+                      fontSize: 13, 
+                      outline: "none",
+                      background: "#fff"
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddCustomField();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleAddCustomField}
+                    style={{
+                      padding: "0 16px",
+                      background: "var(--accent)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      transition: "transform 0.1s"
+                    }}
+                    onMouseDown={e => e.currentTarget.style.transform = "scale(0.95)"}
+                    onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
+                  >
+                    추가
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
@@ -266,7 +610,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
               {isMaster && inviteCode && (
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-tertiary)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                    👑 팀 초대 코드
+                    팀 초대 코드
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", padding: "16px 20px", background: "linear-gradient(135deg, #4f46e5, #7c3aed)", borderRadius: 16 }}>
                     <div style={{ flex: 1 }}>
@@ -281,11 +625,11 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                       onClick={() => copyToClipboard(inviteCode, "초대 코드")}
                       style={{ padding: "10px 16px", background: "rgba(255,255,255,0.2)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", backdropFilter: "blur(10px)" }}
                     >
-                      📋 복사
+                      복사
                     </button>
                   </div>
                   <div style={{ marginTop: 8, padding: "10px 14px", background: "rgba(79,70,229,0.06)", borderRadius: 10, fontSize: 12, color: "#4f46e5", fontWeight: 600, lineHeight: 1.6 }}>
-                    💡 직원이 앱 최초 로그인 시 "초대 코드로 합류하기"를 선택해 이 코드를 입력하면 같은 매장 데이터를 공유합니다.
+                    직원이 앱 최초 로그인 시 "초대 코드로 합류하기"를 선택해 이 코드를 입력하면 같은 매장 데이터를 공유합니다.
                   </div>
                 </div>
               )}
@@ -293,7 +637,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
               {/* 스태프에게 안내 */}
               {!isMaster && (
                 <div style={{ padding: "16px 18px", background: "#fef3c7", borderRadius: 14, border: "1px solid #fcd34d" }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e", marginBottom: 4 }}>👤 스태프 계정</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e", marginBottom: 4 }}>스태프 계정</div>
                   <div style={{ fontSize: 13, color: "#78350f", lineHeight: 1.6 }}>초대 코드 확인은 마스터(사장님)만 가능합니다.</div>
                 </div>
               )}
@@ -326,9 +670,10 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                           width: 36, height: 36, borderRadius: "50%",
                           background: member.role === "master" ? "linear-gradient(135deg, #4f46e5, #7c3aed)" : "linear-gradient(135deg, #64748b, #94a3b8)",
                           display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 16, flexShrink: 0
+                          color: "#fff",
+                          fontSize: 13, fontWeight: 700, flexShrink: 0
                         }}>
-                          {member.role === "master" ? "👑" : "👤"}
+                          {member.role === "master" ? "M" : "S"}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
@@ -364,7 +709,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   현재 이용 중인 플랜
                 </div>
                 <div style={{ fontSize: 24, fontWeight: 900, color: profile?.subscription_status === "pro" ? "#fff" : "#0f172a" }}>
-                  {profile?.subscription_status === "pro" ? "⚡ PRO 무제한 요금제" : "🌱 무료 요금제"}
+                  {profile?.subscription_status === "pro" ? "PRO 무제한 요금제" : "무료 요금제"}
                 </div>
               </div>
 
@@ -405,68 +750,113 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
 
           {/* ─── 웹훅 탭 ─── */}
           {activeTab === "webhook" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>
-                향후 카카오 챗봇 관리자 센터에 아래 주소를 입력하세요. 수신된 주문 메시지가 자동으로 DB(장부)에 기록됩니다.
-              </p>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  웹훅 엔드포인트
+            <div style={{ position: "relative", minHeight: 200, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
+              {/* 콘텐츠 블러처리 */}
+              <div style={{ filter: "blur(3.5px)", opacity: 0.35, pointerEvents: "none", display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6, margin: 0 }}>
+                  향후 카카오 챗봇 관리자 센터에 아래 주소를 입력하세요. 수신된 주문 메시지가 자동으로 DB(장부)에 기록됩니다.
+                </p>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    웹훅 엔드포인트
+                  </div>
+                  <div style={{ display: "flex", gap: 8, padding: "10px 14px", background: "#1c1c1e", borderRadius: 10, alignItems: "center" }}>
+                    <code style={{ flex: 1, fontSize: 12, color: "#34c759", fontFamily: "var(--font-geist-mono)", overflowX: "auto", whiteSpace: "nowrap" }}>
+                      {webhookUrl}
+                    </code>
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: "5px 12px", fontSize: 12, borderRadius: 7, flexShrink: 0 }}
+                      onClick={() => copyToClipboard(webhookUrl, "웹훅 URL")}
+                    >
+                      복사
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, padding: "10px 14px", background: "#1c1c1e", borderRadius: 10, alignItems: "center" }}>
-                  <code style={{ flex: 1, fontSize: 12, color: "#34c759", fontFamily: "var(--font-geist-mono)", overflowX: "auto", whiteSpace: "nowrap" }}>
-                    {webhookUrl}
-                  </code>
-                  <button
-                    className="btn btn-primary"
-                    style={{ padding: "5px 12px", fontSize: 12, borderRadius: 7, flexShrink: 0 }}
-                    onClick={() => copyToClipboard(webhookUrl, "웹훅 URL")}
-                  >
-                    복사
-                  </button>
+                <div style={{ padding: "12px 14px", background: "var(--accent-soft)", borderRadius: 12, border: "1px solid rgba(0,122,255,0.2)", fontSize: 12, color: "var(--accent)", lineHeight: 1.6 }}>
+                  카카오 i 오픈빌더의 스킬 설정 메뉴에서 위 URL을 등록하고 주문 시나리오 파라미터와 연결해 주세요.
                 </div>
               </div>
-              <div style={{ padding: "12px 14px", background: "var(--accent-soft)", borderRadius: 12, border: "1px solid rgba(0,122,255,0.2)", fontSize: 12, color: "var(--accent)", lineHeight: 1.6 }}>
-                📡 카카오 i 오픈빌더의 <b>[스킬 설정]</b> 메뉴에서 위 URL을 등록하고 주문 시나리오 파라미터와 연결해 주세요.
+
+              {/* 준비중 오버레이 */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "rgba(255,255,255,0.6)",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                textAlign: "center", padding: 24, zIndex: 10,
+                backdropFilter: "blur(1px)",
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16, background: "rgba(79, 70, 229, 0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)",
+                  fontSize: 22, marginBottom: 12
+                }}>
+                  ⚙️
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                  카카오 웹훅 연동 준비 중
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 300 }}>
+                  더 간편하고 안정적인 카카오톡 주문 접수 알림 연동 기능을 열심히 개발하고 있습니다. 조금만 기다려주세요!
+                </div>
               </div>
             </div>
           )}
 
           {/* ─── 주문 링크 탭 ─── */}
           {activeTab === "link" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}>
-                고객에게 이 링크를 공유하면, 고객이 직접 주문서를 작성하여 장부에 바로 등록됩니다.
-              </p>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  매장 고유 주문 링크
+            <div style={{ position: "relative", minHeight: 200, borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column", gap: 16, padding: "8px 0" }}>
+              {/* 콘텐츠 블러처리 */}
+              <div style={{ filter: "blur(3.5px)", opacity: 0.35, pointerEvents: "none", display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ fontSize: 14, color: "var(--text-secondary)", lineHeight: 1.7, margin: 0 }}>
+                  고객에게 이 링크를 공유하면, 고객이 직접 주문서를 작성하여 장부에 바로 등록됩니다.
+                </p>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    매장 고유 주문 링크
+                  </div>
+                  <div style={{ display: "flex", gap: 8, padding: "10px 14px", background: "#1c1c1e", borderRadius: 10, alignItems: "center" }}>
+                    <code style={{ flex: 1, fontSize: 12, color: "#5ac8fa", fontFamily: "var(--font-geist-mono)", overflowX: "auto", whiteSpace: "nowrap" }}>
+                      {orderLink}
+                    </code>
+                    <button
+                      className="btn btn-primary"
+                      style={{ padding: "5px 12px", fontSize: 12, borderRadius: 7, flexShrink: 0 }}
+                    >
+                      복사
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: "flex", gap: 8, padding: "10px 14px", background: "#1c1c1e", borderRadius: 10, alignItems: "center" }}>
-                  <code style={{ flex: 1, fontSize: 12, color: "#5ac8fa", fontFamily: "var(--font-geist-mono)", overflowX: "auto", whiteSpace: "nowrap" }}>
-                    {orderLink}
-                  </code>
-                  <button
-                    className="btn btn-primary"
-                    style={{ padding: "5px 12px", fontSize: 12, borderRadius: 7, flexShrink: 0 }}
-                    onClick={() => copyToClipboard(orderLink, "주문 링크")}
-                  >
-                    복사
-                  </button>
+                <button
+                  className="btn"
+                  style={{ background: "rgba(0,0,0,0.06)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 16px", width: "100%", fontSize: 14 }}
+                >
+                  QR 코드 생성 →
+                </button>
+              </div>
+
+              {/* 준비중 오버레이 */}
+              <div style={{
+                position: "absolute", inset: 0,
+                background: "rgba(255,255,255,0.6)",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                textAlign: "center", padding: 24, zIndex: 10,
+                backdropFilter: "blur(1px)",
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: 16, background: "rgba(79, 70, 229, 0.08)",
+                  display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)",
+                  fontSize: 22, marginBottom: 12
+                }}>
+                  🔗
+                </div>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                  주문서 직접 제출 링크 준비 중
+                </div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: 300 }}>
+                  고객용 비회원 주문 접수 페이지 및 링크 연동 기능을 더욱 안전하고 완성도 높게 개발 중입니다. 조금만 기다려주세요!
                 </div>
               </div>
-              <button
-                className="btn"
-                style={{ background: "rgba(0,0,0,0.06)", color: "var(--text-primary)", borderRadius: 10, padding: "10px 16px", width: "100%", fontSize: 14 }}
-                onClick={() => {
-                  if (typeof window !== "undefined") {
-                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(orderLink)}`;
-                    window.open(qrUrl, "_blank");
-                  }
-                }}
-              >
-                📱 QR 코드 생성 →
-              </button>
             </div>
           )}
 

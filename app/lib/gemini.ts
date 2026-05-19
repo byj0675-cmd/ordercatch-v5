@@ -1,14 +1,20 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Ensure we have an API key
+export const runtime = 'edge';
+
 const apiKey = process.env.GEMINI_API_KEY || "";
 const genAI = new GoogleGenerativeAI(apiKey);
+
+export interface CustomField {
+  key: string;
+  value: string;
+}
 
 export interface ParsedOrder {
   customerName: string;
   phone: string;
   productName: string;
-  pickupDate: string; // ISO 8601
+  pickupDate: string;
   intent: "new" | "update";
   options: {
     delivery?: string;
@@ -18,90 +24,137 @@ export interface ParsedOrder {
     paymentMethod?: string;
     [key: string]: string | undefined;
   };
+  amount?: number;
+  customFields?: CustomField[];
 }
 
-// Helper to handle generation logic for different models
-async function tryGenerate(modelName: string, prompt: string, text: string): Promise<ParsedOrder | null> {
-  const model = genAI.getGenerativeModel({ model: modelName });
-  
-  try {
-    const result = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: prompt + "\n\n주문 메시지:\n" + text }] }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          customerName: { type: SchemaType.STRING, description: "고객 이름" },
-          phone: { type: SchemaType.STRING, description: "전화번호 (모르면 빈 문자열)" },
-          productName: { type: SchemaType.STRING, description: "주문한 상품명 또는 서비스 종류 요약" },
-          pickupDate: { type: SchemaType.STRING, description: "픽업/방문 일시의 ISO 8601 문자열. 알 수 없으면 빈 문자열" },
-          intent: { type: SchemaType.STRING, description: "주문 의도. 반드시 'new' 또는 'update' 중 하나로 반환" },
-          options: {
-            type: SchemaType.OBJECT,
-            description: "배송방법, 주소, 메모, 요건, 예약금 등 기타 모든 상세 요구사항",
-            properties: {
-              delivery: { type: SchemaType.STRING },
-              address: { type: SchemaType.STRING },
-              memo: { type: SchemaType.STRING },
-              allergyInfo: { type: SchemaType.STRING },
-              paymentMethod: { type: SchemaType.STRING },
-            },
-          },
-        },
-        required: ["customerName", "phone", "productName", "pickupDate", "intent", "options"],
+// Response Schema for Google Generative AI
+const responseSchema: any = {
+  type: SchemaType.OBJECT,
+  properties: {
+    customerName: { type: SchemaType.STRING },
+    phone: { type: SchemaType.STRING },
+    productName: { type: SchemaType.STRING },
+    pickupDate: { type: SchemaType.STRING },
+    intent: { type: SchemaType.STRING },
+    amount: { type: SchemaType.NUMBER },
+    options: {
+      type: SchemaType.OBJECT,
+      properties: {
+        delivery: { type: SchemaType.STRING },
+        address: { type: SchemaType.STRING },
+        memo: { type: SchemaType.STRING },
+        allergyInfo: { type: SchemaType.STRING },
+        paymentMethod: { type: SchemaType.STRING },
       },
     },
+    customFields: {
+      type: SchemaType.ARRAY,
+      description: "주문서에서 추출한 기본 필드 이외의 매장별 맞춤 필드 목록 (예: 케이크 문구, 맛 선택, 꽃 종류, 디자인 옵션 등)",
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          key: { type: SchemaType.STRING, description: "항목의 이름 (예: '레터링 문구', '꽃 종류', '디자인', '추가 요구사항')" },
+          value: { type: SchemaType.STRING, description: "해당 항목의 값" },
+        },
+        required: ["key", "value"],
+      },
+    },
+  },
+  required: ["customerName", "phone", "productName", "pickupDate", "intent", "options", "customFields"],
+};
+
+// ── Streaming Parser ──────────────────────────────────
+export async function parseOrderStreamWithGemini(text: string, enabledFields?: string[]): Promise<ReadableStream> {
+  if (!apiKey || apiKey.trim().length < 10) {
+    throw new Error("GEMINI_API_KEY is missing or invalid.");
+  }
+
+  const now = new Date().toISOString();
+
+  // 사용 안 하는 필드 가이드라인 생성
+  let disabledGuide = "";
+  if (enabledFields && enabledFields.length > 0) {
+    const allPossible = ["customerName", "productName", "pickupDate", "phone", "address", "amount", "memo"];
+    const disabled = allPossible.filter(f => !enabledFields.includes(f));
+    if (disabled.length > 0) {
+      disabledGuide = `\n[중요 알림] 다음 필드는 사용하지 않으므로 본문에서 아무리 찾을 수 있어도 절대 추출하지 말고 반드시 빈 문자열("") 혹은 0으로 반환하세요: ${disabled.join(", ")}`;
+    }
+  }
+
+  const prompt = `주문 정보 추출. 현재 KST: ${now}.
+반드시 제공된 JSON Schema 형태로만 출력하세요. 설명 금지.
+이름:customerName, 연락처:phone, 상품:productName, 일시:pickupDate(ISO8601 or ""), 금액:amount(number).${disabledGuide}
+- 상대시점(예: '내일 3시')은 KST 기준으로 정확한 ISO로 연산하세요.
+- 고객명이 본문에 없거나 애매하면 "customerName" 같은 필드명이나 설명문을 넣지 말고 반드시 빈 문자열("")로 반환하세요.
+- 퀵 주소, 배송 주소 등 주소 정보는 options.address에 추출하여 매핑하세요.
+- 기본 정보(이름, 연락처, 상품명, 일시, 주소, 금액, 메모)를 제외한 모든 맞춤 주문 조건들(예: 레터링 문구, 맛 선택, 꽃 색상, 네일 디자인 옵션 등)은 customFields 배열로 분류하여 key와 value 형식으로 상세히 리스트업하세요.
+- 그 외 특이사항이나 메모는 options.memo에 넣으세요.
+intent는 신규: new, 수정: update.`;
+
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+
+  const resultStream = await model.generateContentStream({
+    contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: responseSchema,
+    } as any,
   });
 
-    const responseText = result.response.text();
-    return JSON.parse(responseText) as ParsedOrder;
-  } catch (err: any) {
-    console.error(`[Gemini API Error - ${modelName}]:`, err.message || err);
-    throw err; // Re-throw to be caught by parseOrderWithGemini
-  }
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of resultStream.stream) {
+          const chunkText = chunk.text();
+          if (chunkText) {
+            controller.enqueue(encoder.encode(chunkText));
+          }
+        }
+      } catch (err) {
+        controller.error(err);
+      } finally {
+        controller.close();
+      }
+    }
+  });
 }
 
-export async function parseOrderWithGemini(text: string): Promise<ParsedOrder | null> {
-  if (!apiKey) {
-    const errorMsg = "GEMINI_API_KEY environment variable is not defined or is empty.";
-    console.error(`[Gemini AI Error]: ${errorMsg}`);
-    throw new Error(errorMsg);
+// ── Legacy Non-stream fallback ─────────────────────────
+export async function parseOrderWithGemini(text: string, enabledFields?: string[]): Promise<ParsedOrder | null> {
+  if (!apiKey || apiKey.trim().length < 10) {
+    throw new Error("GEMINI_API_KEY is missing or invalid.");
   }
+
+  const now = new Date().toISOString();
   
-  if (apiKey.trim().length < 10) {
-    const errorMsg = `GEMINI_API_KEY seems invalid (too short): ${apiKey.substring(0, 3)}...`;
-    console.error(`[Gemini AI Error]: ${errorMsg}`);
-    throw new Error(errorMsg);
+  let disabledGuide = "";
+  if (enabledFields && enabledFields.length > 0) {
+    const allPossible = ["customerName", "productName", "pickupDate", "phone", "address", "amount", "memo"];
+    const disabled = allPossible.filter(f => !enabledFields.includes(f));
+    if (disabled.length > 0) {
+      disabledGuide = `\n다음 필드는 사용 안하므로 빈 문자열("") 또는 0으로 반환하세요: ${disabled.join(", ")}`;
+    }
   }
 
-  const nowIso = new Date().toISOString();
-  const systemPrompt = `
-당신은 네일샵, 가죽공방, 베이커리, 디저트, 식당, 헤어샵 등 모든 예약 및 주문 기반 소상공인 매장을 위한 범용 AI 비서입니다.
-현재 시스템 날짜와 시간은 [${nowIso}] (한국 표준시 기준) 입니다.
-이 날짜와 시간을 기준으로 고객이 말한 '내일 오후 3시', '4월 5일' 등의 시간을 정확한 ISO 날짜 형식으로 계산하세요.
-시간 정보가 없을 경우 임의로 채우지 마세요.
+  const prompt = `주문 정보 추출. 현재 KST: ${now}. JSON으로만 출력.${disabledGuide}
+- 고객명이 본문에 없거나 애매하면 "customerName" 같은 필드명이나 설명문을 넣지 말고 반드시 빈 문자열("")로 반환하세요.
+- 주소 정보는 options.address에 추출하여 매핑하세요.
+- 기본 정보를 제외한 맞춤 주문 사양은 customFields 배열로 분류하여 key, value로 추출해 주십시오.
+- 그 외 특이사항이나 메모는 options.memo에 넣으세요.`;
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
-또한, 텍스트가 신규 예약/주문 건인지, 아니면 기존 예약에 대한 날짜/시간/품목/옵션 변경(수정) 요청인지 파악하여 'intent' 필드에 'new' 또는 'update'로 명시하십시오. (예: "날짜 바꿀게요", "내용 변경합니다" -> update)
-다음 주문 메시지에서 주문 정보를 추출하십시오.
+  const result = await model.generateContent({
+    contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
+    generationConfig: {
+      temperature: 0,
+      responseMimeType: "application/json",
+      responseSchema: responseSchema,
+    } as any,
+  });
 
-"[오더캐치 주문서]" 형식의 메시지입니다. 아래 규칙으로 파싱하세요:
-- 이름/성함 → customerName
-- 연락처/전화번호 → phone
-- 상품/케이크/서비스/메뉴 등 → productName
-- 픽업일시/방문일시/예약일 → pickupDate (ISO 8601, 시간 없으면 빈 문자열)
-- 위 4개 필드 외 나머지 모든 항목(레터링, 알러지, 디자인, 수량, 주소, 결제방법 등) → options 객체에 키:값 형태로 저장
-매장 고유 코드(oc-로 시작)나 시스템 안내 문구는 무시하세요.
-`;
-
-  try {
-    const targetModel = "gemini-2.5-flash-lite";
-    console.log(`[Gemini AI] Attempting with model: ${targetModel}`);
-    return await tryGenerate(targetModel, systemPrompt, text);
-  } catch (error: any) {
-    console.error("[Backend Error Details (Gemini AI Failed)]:", error);
-    const apiErrorMsg = error.message || "Unknown API error";
-    throw new Error(`AI 서버 모델 연동 오류입니다. (${apiErrorMsg})`);
-  }
+  const raw = result.response.text();
+  return JSON.parse(raw) as ParsedOrder;
 }

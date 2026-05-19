@@ -32,12 +32,10 @@ const AnalyticsModal = dynamic(() => import("../components/AnalyticsModal"), { s
 type ViewMode = "calendar" | "list";
 
 const SUMMARY_CARDS = [
-  { key: "all", label: "전체 주문", icon: "📋", color: "#007aff", bg: "rgba(0,122,255,0.08)" },
-  { key: "신규주문", label: "신규 주문", icon: "✨", color: "#059669", bg: "rgba(5,150,105,0.08)" },
-  { key: "제작중", label: "제작 중", icon: "🔨", color: "#2563eb", bg: "rgba(37,99,235,0.08)" },
-  { key: "픽업대기", label: "픽업 대기", icon: "🚀", color: "#d97706", bg: "rgba(217,119,6,0.08)" },
-  { key: "완료", label: "완료", icon: "✅", color: "#6b7280", bg: "rgba(107,114,128,0.08)" },
-  { key: "취소", label: "취소", icon: "❌", color: "#dc2626", bg: "rgba(220,38,38,0.08)" },
+  { key: "all", label: "전체 주문", color: "#007aff", bg: "rgba(0,122,255,0.08)" },
+  { key: "신규주문", label: "신규 주문", color: "#059669", bg: "rgba(5,150,105,0.08)" },
+  { key: "완료", label: "완료", color: "#6b7280", bg: "rgba(107,114,128,0.08)" },
+  { key: "취소", label: "취소", color: "#dc2626", bg: "rgba(220,38,38,0.08)" },
 ] as const;
 
 type FilterKey = (typeof SUMMARY_CARDS)[number]["key"];
@@ -271,8 +269,6 @@ export default function Dashboard() {
     return {
       all: storeOrders.length,
       신규주문: storeOrders.filter((o) => o.status === "신규주문").length,
-      제작중: storeOrders.filter((o) => o.status === "제작중").length,
-      픽업대기: storeOrders.filter((o) => o.status === "픽업대기").length,
       완료: storeOrders.filter((o) => o.status === "완료").length,
       취소: storeOrders.filter((o) => o.status === "취소").length,
     };
@@ -342,14 +338,16 @@ export default function Dashboard() {
         <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
           {/* 스태프는 매출 카드 숨김 */}
           {isMaster && (
-            <div className="hidden lg:grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              {SUMMARY_CARDS.slice(1, 5).map(card => (
+            <div className="hidden lg:grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              {SUMMARY_CARDS.slice(1, 4).map(card => (
                 <button
                   key={card.key}
-                  onClick={() => setActiveFilter(card.key)}
+                  onClick={() => {
+                    setActiveFilter(card.key);
+                    setViewMode("list");
+                  }}
                   className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
                 >
-                  <div className="text-2xl mb-1">{card.icon}</div>
                   <div className="text-sm font-bold text-slate-400">{card.label}</div>
                   <div className="text-2xl font-black text-slate-900">{summaryData[card.key]}</div>
                 </button>
@@ -360,7 +358,10 @@ export default function Dashboard() {
           {/* 스태프 모드 라벨 */}
           {!isMaster && profile?.store_id && (
             <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-sm font-bold text-amber-700">
-              <span>👤</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
               <span>스태프 모드 — 주문 조회 및 상태 변경만 가능합니다</span>
             </div>
           )}
@@ -381,29 +382,66 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-12 gap-6 pb-24 md:pb-0">
             <div className="col-span-12 lg:col-span-8">
-              <div className="mb-6 flex items-center justify-between">
-                 <div className="flex items-center gap-4">
+              {/* 주문 관리 헤더 및 가로 탭 바 */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-4">
                     <h2 className="text-xl font-black text-slate-900 tracking-tight">주문 관리</h2>
                     <div className="hidden md:flex bg-slate-100 p-1 rounded-xl">
-                       <button onClick={() => setViewMode("calendar")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "calendar" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>캘린더</button>
-                       <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "list" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>목록</button>
+                      <button onClick={() => setViewMode("calendar")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "calendar" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>캘린더</button>
+                      <button onClick={() => setViewMode("list")} className={`px-4 py-1.5 rounded-lg text-sm font-bold transition-all ${viewMode === "list" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}>목록</button>
                     </div>
-                 </div>
+                  </div>
 
-                 <div className="flex gap-2">
+                  <div className="flex gap-2">
                     <button
                       onClick={() => setShowAnalyticsModal(true)}
                       className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl shadow-sm text-sm hover:bg-slate-50 active:scale-[0.98] transition-all hidden sm:flex items-center gap-1.5"
                     >
-                      <span>📊</span> 매출 통계
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ marginRight: 2 }}>
+                        <line x1="18" y1="20" x2="18" y2="10"/>
+                        <line x1="12" y1="20" x2="12" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                      매출 통계
                     </button>
-                    <button
-                      onClick={() => setShowManualSheet(true)}
-                      className="px-5 py-2.5 bg-indigo-600 text-white font-black rounded-2xl shadow-lg shadow-indigo-100 text-sm hover:scale-[1.02] active:scale-[0.98] transition-all"
-                    >
-                       + 주문 등록
-                    </button>
-                 </div>
+                  </div>
+                </div>
+
+                {/* 주문 진행 상태별 필터 탭 바 (이모지 삭제 및 모노톤 디자인) */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
+                  {([
+                    { key: "all", label: "전체" },
+                    { key: "신규주문", label: "신규" },
+                    { key: "완료", label: "완료" },
+                    { key: "취소", label: "취소" },
+                  ] as const).map((tab) => {
+                    const isActive = activeFilter === tab.key;
+                    const count = summaryData[tab.key];
+                    
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => {
+                          setActiveFilter(tab.key);
+                          setViewMode("list"); // 필터 클릭 시 하단 전체 목록 뷰로 자동 전환
+                        }}
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${
+                          isActive 
+                            ? "bg-slate-900 text-white shadow-sm" 
+                            : "bg-white text-slate-500 border border-slate-200/80 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {viewMode === "calendar" ? (
@@ -880,19 +918,23 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
     );
   }
 
-  const msgs: Record<Exclude<FilterKey, "all">, { emoji: string; title: string; sub: string }> = {
-    신규주문: { emoji: "✨", title: "신규 주문 없음", sub: "아직 새로 들어온 주문이 없습니다." },
-    제작중:   { emoji: "🔨", title: "제작 중인 주문 없음", sub: "현재 제작 중인 주문이 없습니다." },
-    픽업대기: { emoji: "🚀", title: "픽업 대기 주문 없음", sub: "픽업 대기 중인 주문이 없습니다." },
-    완료:     { emoji: "✅", title: "완료 내역 없음", sub: "아직 완료된 주문이 없습니다." },
-    취소:     { emoji: "❌", title: "취소 내역 없음", sub: "취소된 주문이 없습니다. 좋은 신호예요! 👍" },
+  const msgs: Record<Exclude<FilterKey, "all">, { title: string; sub: string }> = {
+    신규주문: { title: "신규 주문 없음", sub: "아직 새로 들어온 주문이 없습니다." },
+    완료:     { title: "완료 내역 없음", sub: "아직 완료된 주문이 없습니다." },
+    취소:     { title: "취소 내역 없음", sub: "취소된 주문이 없습니다." },
   };
   const m = msgs[filter as Exclude<FilterKey, "all">];
   return (
     <div style={{ padding: "80px 20px", textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-      <div style={{ fontSize: 56 }}>{m.emoji}</div>
-      <div style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>{m.title}</div>
-      <div style={{ fontSize: 14, color: "var(--text-secondary)" }}>{m.sub}</div>
+      <div style={{ color: "#cbd5e1" }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>{m.title}</div>
+      <div style={{ fontSize: 13, color: "#64748b" }}>{m.sub}</div>
     </div>
   );
 }

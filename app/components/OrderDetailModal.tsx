@@ -10,17 +10,15 @@ import { useStoreProvider } from "../context/StoreContext";
 // --- 디자인 시스템 상수 (Indigo & Slate 테마) ---
 const STATUS_CONFIG: Record<OrderStatus, { color: string; bg: string; label: string; dot: string }> = {
   신규주문: { color: "#4F46E5", bg: "rgba(79, 70, 229, 0.1)", label: "신규주문", dot: "#4F46E5" },
-  제작중:   { color: "#2563EB", bg: "rgba(37, 99, 235, 0.1)", label: "제작중",   dot: "#3B82F6" },
-  픽업대기: { color: "#D97706", bg: "rgba(217, 119, 6, 0.1)", label: "픽업대기", dot: "#F59E0B" },
   완료:     { color: "#475569", bg: "rgba(71, 85, 105, 0.1)", label: "완료",    dot: "#64748B" },
   취소:     { color: "#EF4444", bg: "rgba(239, 68, 68, 0.1)", label: "취소",    dot: "#F87171" },
 };
 
 const SOURCE_CONFIG = {
-  kakao: { label: "카카오톡", color: "#FEE500", textColor: "#3B1E08", emoji: "💬" },
-  instagram: { label: "인스타", color: "#E1306C", textColor: "#fff", emoji: "📷" },
-  manual: { label: "직접입력", color: "#64748B", textColor: "#fff", emoji: "✏️" },
-  link: { label: "링크주문", color: "#4F46E5", textColor: "#fff", emoji: "🔗" },
+  kakao: { label: "카카오톡", color: "#FEE500", textColor: "#3B1E08" },
+  instagram: { label: "인스타", color: "#E1306C", textColor: "#fff" },
+  manual: { label: "직접입력", color: "#64748B", textColor: "#fff" },
+  link: { label: "링크주문", color: "#4F46E5", textColor: "#fff" },
 };
 
 interface OrderDetailModalProps {
@@ -31,7 +29,7 @@ interface OrderDetailModalProps {
   onUpdated?: (updatedOrder: Order) => void;
 }
 
-const STATUSES: Order["status"][] = ["신규주문", "제작중", "픽업대기", "완료", "취소"];
+const STATUSES: Order["status"][] = ["신규주문", "완료", "취소"];
 
 export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete, onUpdated }: OrderDetailModalProps) {
   const { updateOrderFields } = useStoreProvider();
@@ -101,7 +99,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
         if (error) throw error;
         const { data } = supabase.storage.from("order_images").getPublicUrl(path);
         uploadedImageUrlRef.current = data.publicUrl;
-        showToast("사진 업로드 완료!", "success", "📸");
+        showToast("사진 업로드 완료!", "success");
         return data.publicUrl;
       } catch (err) {
         console.error("Upload error:", err);
@@ -112,7 +110,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
       }
     })();
     uploadPromiseRef.current = promise;
-    showToast("사진 업로드 중... 다른 정보를 계속 수정할 수 있습니다.", "info", "📸");
+    showToast("사진 업로드 중... 다른 정보를 계속 수정할 수 있습니다.", "info");
   }, [order.storeId]);
 
   const handleSave = async () => {
@@ -216,7 +214,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                       color: "#64748B",
                     }}
                   >
-                    {src?.emoji || "✏️"} {src?.label || "직접입력"}
+                    {src?.label || "직접입력"}
                   </span>
                 </div>
                 <textarea
@@ -258,7 +256,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
             
             {/* 사진 관리 영역 */}
             <div>
-              <SectionTitle>📸 사진 관리</SectionTitle>
+              <SectionTitle>사진 관리</SectionTitle>
               <div style={{ marginTop: 14 }}>
                 {imagePreview ? (
                   <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
@@ -294,13 +292,17 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      gap: 10,
+                      gap: 8,
                       cursor: "pointer",
                       transition: "all 0.2s"
                     }}
                   >
-                    <span style={{ fontSize: 32 }}>🖼️</span>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#64748B" }}>사진 추가 (클릭하거나 Ctrl+V)</div>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                      <circle cx="8.5" cy="8.5" r="1.5"/>
+                      <polyline points="21 15 16 10 5 21"/>
+                    </svg>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#64748B" }}>사진 추가 (클릭하거나 Ctrl+V)</div>
                   </div>
                 )}
                 <input 
@@ -370,7 +372,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
 
             {/* 요청사항/메모 */}
             <div>
-              <SectionTitle>📝 요청사항 및 메모</SectionTitle>
+              <SectionTitle>요청사항 및 메모</SectionTitle>
               <textarea
                 value={editMemo}
                 onChange={(e) => setEditMemo(e.target.value)}
@@ -395,7 +397,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
 
             {/* 상태 변경 탭 */}
             <div>
-              <SectionTitle>📂 진행 상태 변경</SectionTitle>
+              <SectionTitle>진행 상태 변경</SectionTitle>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
                 {STATUSES.map((s) => {
                   const c = STATUS_CONFIG[s] || STATUS_CONFIG["신규주문"] || {};
@@ -462,7 +464,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                 onMouseEnter={e => !isSaving && (e.currentTarget.style.transform = "translateY(-2px)")}
                 onMouseLeave={e => !isSaving && (e.currentTarget.style.transform = "translateY(0)")}
               >
-                {isSaving ? "사진 업로드 대기 중..." : (uploadingImage ? "📤 사진 업로드 중 (저장 가능)" : "주문 정보 업데이트")}
+                {isSaving ? "사진 업로드 대기 중..." : (uploadingImage ? "사진 업로드 중 (저장 가능)" : "주문 정보 업데이트")}
               </button>
             </div>
 
@@ -490,7 +492,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.2)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)")}
                 >
-                  🗑️ 주문 영구 삭제
+                  주문 영구 삭제
                 </button>
               )}
             </div>

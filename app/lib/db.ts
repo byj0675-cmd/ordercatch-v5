@@ -7,7 +7,7 @@ import Dexie, { Table } from "dexie";
 
 // ─── 타입 정의 ─────────────────────────────────────────────────
 
-export type OrderStatus = "신규주문" | "제작중" | "픽업대기" | "완료" | "취소";
+export type OrderStatus = "신규주문" | "완료" | "취소";
 export type SubscriptionStatus = "free" | "pro";
 
 export interface LocalOrder {

@@ -95,7 +95,7 @@ export default function VerticalTimeline({ orders, onOrderClick, onAddOrder, onS
                 boxShadow: "0 2px 10px rgba(79,70,229,0.3)",
               }}
             >
-              <span>✏️</span> 주문 등록
+              주문 등록
             </button>
           )}
         </div>
@@ -158,8 +158,8 @@ export default function VerticalTimeline({ orders, onOrderClick, onAddOrder, onS
                   {day.orders.map(o => {
                     const cfg = getEventCfg(o);
                     const personal = isPersonal(o);
-                    const quickStatuses = (["제작중", "픽업대기", "완료"] as Order["status"][])
-                      .filter(s => s !== o.status).slice(0, 2);
+                    const quickStatuses = (["완료", "취소"] as Order["status"][])
+                      .filter(s => s !== o.status);
                     return (
                       <button
                         key={o.id}
@@ -185,7 +185,7 @@ export default function VerticalTimeline({ orders, onOrderClick, onAddOrder, onS
                         <div style={{ flex: 1, overflow: "hidden" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {personal ? "📅 " : ""}{o.customerName}
+                              {personal ? "[일정] " : ""}{o.customerName}
                             </span>
                             <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 20, background: cfg?.bg || "#f3f4f6", color: cfg?.color || "#6b7280", flexShrink: 0 }}>
                               {cfg?.label || o.status}

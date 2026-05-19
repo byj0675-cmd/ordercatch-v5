@@ -104,8 +104,8 @@ export default function OrderCard({
         background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "#4f46e5" : "#cbd5e1",
         color: "#fff", fontSize: 16, fontWeight: 800,
       }}>
-        <span style={{ opacity: dragAction === "call" ? 1 : 0.5 }}>📞 전화</span>
-        <span style={{ opacity: dragAction === "complete" ? 1 : 0.5 }}>✅ 완료</span>
+        <span style={{ opacity: dragAction === "call" ? 1 : 0.5 }}>전화</span>
+        <span style={{ opacity: dragAction === "complete" ? 1 : 0.5 }}>완료</span>
       </div>
 
       <motion.div
@@ -173,7 +173,7 @@ export default function OrderCard({
         {/* Memo */}
         {highlight && (
           <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: 12, border: "1px solid #f1f5f9", fontSize: 13, color: "#334155", lineHeight: 1.5 }}>
-            💬 {highlight}
+            {highlight}
           </div>
         )}
 

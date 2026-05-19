@@ -2,7 +2,7 @@
 import "./landing.css";
 import { signInWithKakao } from "@/utils/supabase/client";
 import { showToast } from "@/app/components/Toast";
-import { useEffect, useRef, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoreProvider } from "./context/StoreContext";
 import Image from "next/image";
@@ -272,21 +272,21 @@ function LandingContent() {
                   { num: "02", title: "오더캐치에 붙여넣기", desc: "AI가 고객명·날짜·상품·연락처를 자동 추출" },
                   { num: "03", title: "장부에 즉시 등록", desc: "날짜별로 정렬된 장부에 바로 반영" },
                 ].map((s, i) => (
-                  <>
-                    <div key={s.num} className="land-step">
+                  <Fragment key={s.num}>
+                    <div className="land-step">
                       <div className="land-step-num">{s.num}</div>
                       <div className="land-step-title">{s.title}</div>
                       <div className="land-step-desc">{s.desc}</div>
                     </div>
                     {i < 2 && (
-                      <div className="land-arrow" key={`arrow-${i}`}>
+                      <div className="land-arrow">
                         <svg width="32" height="12" viewBox="0 0 32 12" fill="none">
                           <path d="M0 6 Q8 2 16 6 Q24 10 32 6" stroke="#FF7F32" strokeWidth="1.5" fill="none" strokeLinecap="round" />
                           <path d="M28 3 L32 6 L28 9" stroke="#FF7F32" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </div>
             </div>
