@@ -24,6 +24,7 @@ export default function CustomerOrderForm() {
     phone: "",
     productName: "",
     pickupDate: "",
+    pickupTime: "",
     memo: "",
   });
 
@@ -63,7 +64,9 @@ export default function CustomerOrderForm() {
         customer_name: formData.customerName,
         phone: formData.phone,
         product_name: formData.productName,
-        pickup_date: formData.pickupDate ? new Date(formData.pickupDate).toISOString() : null,
+        pickup_date: formData.pickupDate
+          ? new Date(`${formData.pickupDate}T${formData.pickupTime || "00:00"}:00`).toISOString()
+          : null,
         status: "입금대기",
         source: "link",
         options: { memo: formData.memo },
@@ -125,7 +128,7 @@ export default function CustomerOrderForm() {
             사장님이 확인 후 연락드릴 예정입니다.
           </p>
           <button
-            onClick={() => { setSubmitted(false); setFormData({ customerName: "", phone: "", productName: "", pickupDate: "", memo: "" }); }}
+            onClick={() => { setSubmitted(false); setFormData({ customerName: "", phone: "", productName: "", pickupDate: "", pickupTime: "", memo: "" }); }}
             style={{ background: storeColor, color: "#fff", padding: "14px 32px", borderRadius: 12, fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer" }}
           >
             추가 주문하기
@@ -180,9 +183,14 @@ export default function CustomerOrderForm() {
               </FormGroup>
 
               <FormGroup label="픽업(방문) 일시">
-                <input type="datetime-local" name="pickupDate" value={formData.pickupDate} onChange={handleChange}
-                  className="input-field"
-                  style={{ padding: "14px 16px", borderRadius: 12, fontFamily: "inherit", fontSize: 15 }} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input type="date" name="pickupDate" value={formData.pickupDate} onChange={handleChange}
+                    className="input-field"
+                    style={{ flex: 1, padding: "14px 12px", borderRadius: 12, fontFamily: "inherit", fontSize: 15 }} />
+                  <input type="time" name="pickupTime" value={formData.pickupTime} onChange={handleChange}
+                    className="input-field"
+                    style={{ width: 110, padding: "14px 10px", borderRadius: 12, fontFamily: "inherit", fontSize: 15 }} />
+                </div>
               </FormGroup>
 
               <FormGroup label="추가 요청사항">

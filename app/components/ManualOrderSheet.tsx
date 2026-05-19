@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { OrderStatus, STATUS_CONFIG } from "../lib/mockData";
 import { showToast } from "./Toast";
 import { useStoreProvider, UsageLimitError } from "../context/StoreContext";
@@ -145,14 +145,28 @@ export default function ManualOrderSheet({
     }
   };
 
+  // 모바일: 마운트 시 body 스크롤 막기
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 backdrop-blur-sm p-4 md:p-8"
-      onClick={onClose}
+      className="fixed inset-0 z-[200] flex items-end justify-center"
+      style={{ background: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
       <div
-        className="w-full max-w-2xl bg-white rounded-[32px] overflow-hidden shadow-2xl animate-slideUp flex flex-col max-h-[95vh]"
-        onClick={(e) => e.stopPropagation()}
+        className="w-full bg-white overflow-hidden shadow-2xl animate-slideUp flex flex-col"
+        style={{
+          borderRadius: '24px 24px 0 0',
+          maxHeight: '92dvh',
+          maxWidth: 680,
+        }}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {/* Handle Bar */}
         <div className="flex justify-center p-4">

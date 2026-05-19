@@ -214,11 +214,14 @@ export default function Dashboard() {
   const handleLogout = async () => {
     try {
       document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
-      await supabase.auth.signOut();
-      router.replace("/");
-      showToast("로그아웃 되었습니다.", "info", "👋");
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((resolve) => setTimeout(resolve, 800))
+      ]);
     } catch (err) {
-      showToast("로그아웃 중 오류가 발생했습니다.", "error");
+      console.warn("Logout error:", err);
+    } finally {
+      window.location.href = "/";
     }
   };
 
@@ -444,31 +447,35 @@ export default function Dashboard() {
 
       {/* Mobile Bottom Bar */}
       <div
-        className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 w-full max-w-[340px] lg:hidden animate-fadeUp pointer-events-none"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 24px)' }}
+        className="fixed bottom-0 left-0 right-0 lg:hidden"
+        style={{ zIndex: 90, paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
-         <div className="bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[32px] p-2 flex items-center justify-between mx-auto pointer-events-auto" style={{ width: 'calc(100% - 32px)' }}>
+         <div
+           className="bg-white/90 backdrop-blur-2xl border-t border-slate-100 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] p-2 flex items-center justify-around mx-auto"
+           style={{ maxWidth: 480, margin: '0 auto' }}
+         >
             <button
               onClick={() => setViewMode("calendar")}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "calendar" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 8px', borderRadius: 16, border: 'none', background: viewMode === 'calendar' ? '#4f46e5' : 'transparent', color: viewMode === 'calendar' ? '#fff' : '#94a3b8', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', minHeight: 60 }}
             >
-               <span className="text-xl">📅</span>
-               <span className="text-[10px] font-black uppercase tracking-tighter">캘린더</span>
+               <span style={{ fontSize: 20 }}>📅</span>
+               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '-0.03em' }}>캘린더</span>
             </button>
 
             <button
               onClick={() => setShowManualSheet(true)}
-              className="flex-shrink-0 w-14 h-14 bg-slate-900 rounded-full flex items-center justify-center text-white shadow-xl hover:scale-110 active:scale-95 transition-all mx-2"
+              style={{ flexShrink: 0, width: 56, height: 56, background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', WebkitTapHighlightColor: 'transparent', fontSize: 28, lineHeight: 1, margin: '0 12px', flexDirection: 'column' as const }}
+              aria-label="주문 등록"
             >
-               <span className="text-2xl font-light">+</span>
+               +
             </button>
 
             <button
               onClick={() => setViewMode("list")}
-              className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl transition-all ${viewMode === "list" ? "bg-indigo-600 text-white shadow-lg" : "text-slate-400"}`}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '12px 8px', borderRadius: 16, border: 'none', background: viewMode === 'list' ? '#4f46e5' : 'transparent', color: viewMode === 'list' ? '#fff' : '#94a3b8', cursor: 'pointer', WebkitTapHighlightColor: 'transparent', minHeight: 60 }}
             >
-               <span className="text-xl">📋</span>
-               <span className="text-[10px] font-black uppercase tracking-tighter">목록</span>
+               <span style={{ fontSize: 20 }}>📋</span>
+               <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '-0.03em' }}>목록</span>
             </button>
          </div>
       </div>
@@ -496,6 +503,8 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* ManualOrderSheet가 열릴 때 하단 바 숨기기 - z-index로 처리됨 */}
 
       {isPasting && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-600/10 backdrop-blur-md">

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OrderCatch — AI 주문 관리 대시보드",
-  description: "카카오·인스타 주문을 AI가 자동 파싱하여 스마트하게 관리하는 B2B SaaS",
+  title: "오더캐치 — 복붙 한 번으로 끝나는 주문 장부",
+  description: "카톡, 인스타 주문 메시지를 복사해서 붙여넣기만 하세요. 알아서 장부와 달력에 깔끔하게 정리해 드립니다.",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "OrderCatch" },
   other: { "mobile-web-app-capable": "yes" },

@@ -457,23 +457,7 @@ html {
   display: none;
 }
 
-/* ── Drawer Animations & Display Control ── */
-.desktop-only {
-  display: flex !important;
-}
-.mobile-only {
-  display: none !important;
-}
-
-@media (max-width: 768px) {
-  .desktop-only {
-    display: none !important;
-  }
-  .mobile-only {
-    display: flex !important;
-  }
-}
-
+/* Drawer display control - only affects drawer components */
 @keyframes slideInRight {
   from { transform: translateX(100%); }
   to   { transform: translateX(0); }
@@ -568,9 +552,9 @@ html {
   /* No bottom padding needed on PC */
 }
 @media (max-width: 1099px) {
-  /* Push content above the nav bar */
-  .main-pad {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+  /* Push content above the nav bar (bottom bar height: ~72px + safe area) */
+  .main-pad, main {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)) !important;
   }
 }
 

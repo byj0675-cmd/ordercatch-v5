@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoreProvider } from "./context/StoreContext";
 import Image from "next/image";
+import RotatingText from "./components/RotatingText";
 
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -30,43 +31,120 @@ function R({ children, delay = 0 }: { children: React.ReactNode; delay?: number 
 
 function PhoneMockup() {
   const [step, setStep] = useState(0);
-  const msgs = [
-    { f: "c", t: "사장님~ 딸기 케이크 2호\n4월 15일 오후 3시 픽업이요!\n010-1234-5678" },
-    { f: "b", t: "✅ 주문 접수됐어요!\n\n고객명: 김수연\n상품: 딸기 케이크 2호\n픽업: 4월 15일 오후 3시\n장부에 바로 등록했습니다 📋" },
-    { f: "c", t: "아 혹시 날짜 변경 돼요?\n4월 16일로 바꿀게요!" },
-    { f: "b", t: "✅ 수정 완료!\n픽업일을 4월 16일로 변경했어요." },
-  ];
+
   useEffect(() => {
-    if (step >= msgs.length) { setTimeout(() => setStep(0), 3000); return; }
-    const t = setTimeout(() => setStep(s => s + 1), step === 0 ? 800 : 1400);
-    return () => clearTimeout(t);
+    const timer = setInterval(() => {
+      setStep((prev) => (prev + 1) % 3);
+    }, step === 2 ? 3500 : 2500);
+    return () => clearInterval(timer);
   }, [step]);
+
   return (
     <div style={{ width: 220, height: 440, margin: "0 auto", flexShrink: 0, position: "relative" }}>
-      <div style={{ width: "100%", height: "100%", borderRadius: 32, background: "#1a1a1a", boxShadow: "0 20px 60px rgba(0,0,0,0.3),inset 0 0 0 1.5px #333", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div style={{ height: 24, background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: "100%", height: "100%", borderRadius: 32, background: "#1a1a1a", boxShadow: "0 20px 60px rgba(0,0,0,0.3), inset 0 0 0 1.5px #333", overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
+        
+        {/* Notch */}
+        <div style={{ height: 24, background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
           <div style={{ width: 50, height: 8, background: "#333", borderRadius: 4 }} />
         </div>
-        <div style={{ background: "#FAE100", padding: "8px 12px", display: "flex", alignItems: "center", gap: 7 }}>
-          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🍰</div>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 10, color: "#000" }}>오더캐치 봇</div>
-            <div style={{ fontSize: 8, color: "#555" }}>주문 자동 등록</div>
-          </div>
-        </div>
-        <div style={{ flex: 1, background: "#bacee0", padding: "8px 6px", display: "flex", flexDirection: "column", gap: 7, overflowY: "hidden" }}>
-          {msgs.slice(0, step).map((m, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: m.f === "c" ? "flex-end" : "flex-start" }}>
-              <div style={{ maxWidth: "80%", padding: "6px 9px", borderRadius: m.f === "c" ? "12px 12px 2px 12px" : "12px 12px 12px 2px", background: m.f === "c" ? "#FEE500" : "#fff", fontSize: 9, lineHeight: 1.5, whiteSpace: "pre-line", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
-                {m.t}
+
+        {step === 0 && (
+          /* Step 0: KakaoTalk Chat (Copying) */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#bacee0", animation: "fadeIn 0.3s ease" }}>
+            <div style={{ background: "#FAE100", padding: "8px 12px", display: "flex", alignItems: "center", gap: 7 }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🍰</div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 10, color: "#000" }}>단골 고객 카톡</div>
+                <div style={{ fontSize: 7, color: "#555" }}>주문 문의</div>
               </div>
             </div>
-          ))}
-        </div>
-        <div style={{ background: "#f0f0f0", padding: "6px 10px", display: "flex", gap: 5, alignItems: "center" }}>
-          <div style={{ flex: 1, height: 24, background: "#fff", borderRadius: 12, fontSize: 9, color: "#aaa", display: "flex", alignItems: "center", paddingLeft: 10 }}>메시지 입력</div>
-          <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff" }}>↑</div>
-        </div>
+            
+            <div style={{ flex: 1, padding: "20px 8px 16px", display: "flex", flexDirection: "column" }}>
+              <div style={{ alignSelf: "flex-start", maxWidth: "90%" }}>
+                <div style={{ fontSize: 8, color: "#555", marginBottom: 3 }}>김수연 고객님</div>
+                <div style={{ background: "#fff", padding: "8px 10px", borderRadius: "2px 12px 12px 12px", fontSize: 9, lineHeight: 1.5, whiteSpace: "pre-line", boxShadow: "0 1px 3px rgba(0,0,0,0.1)", position: "relative" }}>
+                  사장님~ 딸기 케이크 2호{"\n"}
+                  4월 15일 오후 3시 픽업이요!{"\n"}
+                  010-1234-5678
+                  
+                  {/* Floating Action Badge */}
+                  <div style={{ position: "absolute", bottom: -28, right: 0, background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 900, padding: "4px 8px", borderRadius: 8, boxShadow: "0 4px 12px rgba(255,127,50,0.4)", animation: "pulse 1.2s infinite", whiteSpace: "nowrap", zIndex: 5 }}>
+                    주문 메시지 복사 📋
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Keyboard input bar */}
+            <div style={{ background: "#f0f0f0", padding: "6px 10px", display: "flex", gap: 5, alignItems: "center" }}>
+              <div style={{ flex: 1, height: 24, background: "#fff", borderRadius: 12 }} />
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#ccc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff" }}>↑</div>
+            </div>
+          </div>
+        )}
+
+        {step === 1 && (
+          /* Step 1: OrderCatch Paste */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#f9f9f9", animation: "fadeIn 0.3s ease" }}>
+            <div style={{ background: "#fff", padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+              <Image src="/logo.png" alt="오더캐치" width={55} height={12} style={{ height: 12, width: "auto" }} />
+              <div style={{ background: "#FFF0E6", color: "#FF7F32", fontSize: 6, fontWeight: 800, padding: "1px 4px", borderRadius: 3 }}>대시보드</div>
+            </div>
+
+            <div style={{ flex: 1, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ fontSize: 8, fontWeight: 800, color: "#666" }}>📋 복사한 메시지 붙여넣기</div>
+              <div style={{ flex: 1, background: "#fff", border: "1.5px solid #FF7F32", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", position: "relative" }}>
+                <div style={{ fontSize: 9, lineHeight: 1.4, color: "#2D2D2D", whiteSpace: "pre-line", flex: 1, borderRight: "2px solid #FF7F32", animation: "blink 0.8s infinite" }}>
+                  사장님~ 딸기 케이크 2호{"\n"}
+                  4월 15일 오후 3시 픽업이요!{"\n"}
+                  010-1234-5678
+                </div>
+                
+                {/* Simulated Clickable Button */}
+                <div style={{ background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 800, padding: "5px 0", borderRadius: 6, textAlign: "center", marginTop: 4 }}>
+                  자동 등록하기 ⚡
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          /* Step 2: Order Registered */
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#FDFBF9", animation: "fadeIn 0.3s ease" }}>
+            <div style={{ background: "#fff", padding: "8px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+              <Image src="/logo.png" alt="오더캐치" width={55} height={12} style={{ height: 12, width: "auto" }} />
+              <div style={{ background: "#E8F5E9", color: "#4A7C59", fontSize: 6, fontWeight: 800, padding: "1px 4px", borderRadius: 3 }}>달력 장부</div>
+            </div>
+
+            <div style={{ flex: 1, padding: 12, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
+              <div style={{ textAlign: "center", margin: "4px 0" }}>
+                <div style={{ fontSize: 20, marginBottom: 4 }}>🎉</div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#4A7C59" }}>자동 등록 완료!</div>
+                <div style={{ fontSize: 7, color: "#888", marginTop: 2 }}>달력과 장부에 깔끔하게 기록되었습니다.</div>
+              </div>
+
+              {/* Parsed Result Card */}
+              <div style={{ background: "#fff", borderRadius: 12, border: "1px solid rgba(74,124,89,0.15)", padding: 8, boxShadow: "0 6px 16px rgba(74,124,89,0.06)" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3 }}>
+                    <span style={{ color: "#888" }}>📅 픽업일시</span>
+                    <span style={{ fontWeight: 700, color: "#2D2D2D" }}>4월 15일 15:00</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3 }}>
+                    <span style={{ color: "#888" }}>👤 고객정보</span>
+                    <span style={{ fontWeight: 700, color: "#2D2D2D" }}>김수연 (5678)</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ color: "#888" }}>🍰 주문상품</span>
+                    <span style={{ fontWeight: 700, color: "#FF7F32" }}>딸기 케이크 2호</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -106,32 +184,44 @@ function LandingContent() {
       </nav>
 
       {/* Hero */}
-      <section style={{ paddingTop: 100, paddingBottom: 80, position: "relative" }}>
-        <div className="land-hero">
-          <div style={{ flex: "1 1 320px", maxWidth: 520 }}>
+      <section style={{ position: "relative", overflow: "hidden" }}>
+        <div className="land-hero" style={{ maxWidth: 1100, margin: "0 auto", padding: "140px 24px 100px" }}>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
             <div className="land-hero-badge animate-fadeup">
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#FF7F32", flexShrink: 0 }} />
               세 아이 아빠가 직접 만든 주문 관리 도구
             </div>
-            <h1 className="land-h1 animate-fadeup">
-              밤 11시, 퇴근 후에도<br />
-              끝나지 않던 장부 정리.<br />
-              이제 <span className="land-h1-accent">오더캐치</span>가<br />
-              1분 만에 끝냅니다.
+            <h1 className="land-h1 animate-fadeup" style={{ animationDelay: "100ms" }}>
+              주문 정리가 막막한<br className="block md:hidden" /> <RotatingText /><br className="hidden md:block" />
+              사장님을 위해 이제 <span className="land-h1-accent">오더캐치</span>가<br />
+              알아서 장부에 적어둘게요.
             </h1>
-            <p className="land-sub animate-fadeup">
-              카톡 메시지를 그대로 붙여넣으면, AI가 고객명·날짜·상품을 읽어서 장부에 바로 넣어줍니다.
-            </p>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <button onClick={login} className="land-cta">
-                <span>🎉</span>
-                평생 50% 할인 혜택받고 시작하기
-              </button>
-            </div>
-            <p className="land-note">월 20건까지 영구 무료 · 신용카드 불필요</p>
           </div>
-          <div style={{ flex: "0 0 auto" }}>
-            <PhoneMockup />
+          
+          <div className="land-hero-bottom animate-fadeup" style={{ animationDelay: "200ms" }}>
+            <div style={{ position: "relative", display: "flex", justifyContent: "center" }}>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: "120%", height: "120%", background: "radial-gradient(circle, rgba(255,127,50,0.15) 0%, rgba(255,127,50,0) 65%)", zIndex: 0 }} />
+              <div style={{ position: "relative", zIndex: 1 }}>
+                <PhoneMockup />
+              </div>
+            </div>
+            <div className="land-hero-bottom-text">
+              <h2 style={{ fontSize: "clamp(24px, 3.5vw, 32px)", fontWeight: 900, marginBottom: "20px", color: "#2D2D2D", lineHeight: 1.4, letterSpacing: "-0.03em" }}>
+                복사해서 붙여넣기만 하세요.<br/>AI가 알아서 달력에 정리합니다.
+              </h2>
+              <p style={{ fontSize: "16px", color: "#666", lineHeight: 1.7, marginBottom: "40px" }}>
+                카톡 메시지를 그대로 복사해서 붙여넣기만 하세요.<br className="hidden md:block" />
+                AI가 알아서 날짜, 고객명, 상품을 파악하고 달력에 깔끔하게 정리해 드립니다.<br className="hidden md:block" />
+                놓치는 주문 없이 마음 편하게 장사하세요.
+              </p>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "inherit" }}>
+                <button onClick={login} className="land-cta">
+                  <span>🎉</span>
+                  평생 50% 할인 혜택받고 시작하기
+                </button>
+              </div>
+              <p className="land-note" style={{ marginTop: "16px" }}>월 20건까지 영구 무료 · 신용카드 불필요</p>
+            </div>
           </div>
         </div>
       </section>
