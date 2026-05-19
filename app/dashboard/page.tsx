@@ -126,13 +126,30 @@ export default function Dashboard() {
         router.replace("/");
         return;
       }
+
+      // haminpapa@kakao.com 계정이 staff인 경우 자동으로 사장(master)으로 업그레이드
+      if (profile.email === "haminpapa@kakao.com" && profile.role !== "master") {
+        supabase
+          .from("profiles")
+          .update({ role: "master" })
+          .eq("id", profile.id)
+          .then(({ error }) => {
+            if (!error) {
+              showToast("계정 권한이 사장(master)으로 복구되었습니다.", "success", "👑");
+              refreshStore();
+            } else {
+              console.error("Failed to update role:", error);
+            }
+          });
+      }
+
       if (!profile.store_id) {
         setShowOnboarding(true);
       } else {
         setShowOnboarding(false);
       }
     }
-  }, [profile, loading, router]);
+  }, [profile, loading, router, refreshStore]);
 
   // ── 클립보드 이미지 붙여넣기 ─────────────────────────────
   useEffect(() => {
