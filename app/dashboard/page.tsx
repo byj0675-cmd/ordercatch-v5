@@ -127,18 +127,18 @@ export default function Dashboard() {
         return;
       }
 
-      // haminpapa@kakao.com 계정이 staff인 경우 자동으로 사장(master)으로 업그레이드
-      if (profile.email === "haminpapa@kakao.com" && profile.role !== "master") {
+      // haminpapa@kakao.com 계정이 staff이거나 super_admin이 아닌 경우 자동으로 복구/업그레이드
+      if (profile.email === "haminpapa@kakao.com" && (profile.role !== "master" || !(profile as any).is_super_admin)) {
         supabase
           .from("profiles")
-          .update({ role: "master" })
+          .update({ role: "master", is_super_admin: true })
           .eq("id", profile.id)
           .then(({ error }) => {
             if (!error) {
-              showToast("계정 권한이 사장(master)으로 복구되었습니다.", "success", "👑");
+              showToast("계정 권한 및 최고 관리자 권한이 복구되었습니다.", "success", "👑");
               refreshStore();
             } else {
-              console.error("Failed to update role:", error);
+              console.error("Failed to update role & admin status:", error);
             }
           });
       }
