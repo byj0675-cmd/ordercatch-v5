@@ -302,11 +302,10 @@ function LandingContent() {
             <h2 className="land-section-title">엑셀이나 수기 장부와 뭐가 달라요?</h2>
             <p className="land-section-sub">딱 하나, 카톡을 사람이 읽고 정리하는 것처럼 해주는 게 핵심이에요.</p>
           </R>
-          <div className="land-bento" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+          <div className="land-bento" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
             {[
               { icon: "⚡", title: "붙여넣기 한 번으로 자동 등록", desc: "카톡·인스타 주문 메시지를 넣으면 AI가 즉시 분석해 장부에 올립니다." },
               { icon: "📅", title: "날짜별 정렬 장부", desc: "오늘, 내일 픽업이 몇 건인지 한눈에 확인. 놓치는 주문이 없어집니다." },
-              { icon: "🔗", title: "고객 주문 링크", desc: "사장님만의 링크를 고객에게 보내면 고객이 직접 작성해 장부에 등록됩니다." },
               { icon: "✏️", title: "변경도 메시지 그대로", desc: "수정 카톡을 그대로 넣으면 알아서 내용을 찾아 수정해줍니다." },
             ].map((f, i) => (
               <R key={i} delay={i * 60}>
@@ -392,11 +391,11 @@ function LandingContent() {
           <div className="land-bento land-bento-2" style={{ maxWidth: 720, margin: "0 auto" }}>
             {[
               { name: "무료", price: "0원", period: "언제까지나", featured: false, desc: "주문이 많지 않은 분들", features: ["월 20건 주문 등록", "카톡 메시지 자동 파싱", "날짜별 장부 정리"], note: "신용카드 입력 없이 바로 시작", cta: "지금 시작" },
-              { name: "프로", price: "4,950원", period: "/ 월 (50% 할인)", featured: true, desc: "주문이 월 20건 넘어가는 분들", features: ["무제한 주문 등록", "고객 주문 링크 제공", "카카오 자동 수신 연동", "매출 요약 · CSV 내보내기"], note: "지금 가입하면 평생 50% 할인 혜택", cta: "50% 할인받고 시작" },
+              { name: "프로", price: "4,950원", period: "/ 월 (50% 할인)", featured: true, desc: "주문이 월 20건 넘어가는 분들", features: ["무제한 주문 등록", "카카오 자동 수신 연동", "매출 요약 · CSV 내보내기"], note: "지금 가입하면 평생 50% 할인 혜택", cta: "50% 할인받고 시작" },
             ].map((plan, i) => (
               <R key={i} delay={i * 80}>
                 <div className={`land-price-card ${plan.featured ? "featured" : ""}`}>
-                  {plan.featured && <div className="land-price-badge">🔥 한정 혜택</div>}
+                  {plan.featured && <div className="land-price-badge">🔥 선착순 100명 한정</div>}
                   <div style={{ fontSize: 13, fontWeight: 700, color: plan.featured ? "#FF7F32" : "#888", marginBottom: 8 }}>{plan.name}</div>
                   <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 4 }}>{plan.price} <span style={{ fontSize: 13, fontWeight: 400, color: "#888" }}>{plan.period}</span></div>
                   <div style={{ fontSize: 13, color: "#777", marginBottom: 20, lineHeight: 1.5 }}>{plan.desc}</div>
