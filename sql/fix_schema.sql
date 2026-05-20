@@ -40,3 +40,20 @@ BEGIN
       WITH CHECK (true);
   END IF;
 END $$;
+
+-- 4. profiles 테이블의 RLS 무한 재귀 오류 해결 (추가 치명적 버그 수정)
+-- SELECT 정책 내에서 profiles를 다시 조회(서브쿼리)하여 발생하던 infinite recursion 오류를 보안 정의자 함수(SECURITY DEFINER)로 해결합니다.
+CREATE OR REPLACE FUNCTION public.get_user_store_id(user_uuid UUID)
+RETURNS UUID AS $$
+  SELECT store_id FROM public.profiles WHERE id = user_uuid LIMIT 1;
+$$ LANGUAGE sql SECURITY DEFINER SET search_path = public;
+
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+CREATE POLICY "Users can view own profile"
+  ON public.profiles FOR SELECT
+  TO authenticated
+  USING (
+    auth.uid() = id
+    OR store_id = public.get_user_store_id(auth.uid())
+  );
+
