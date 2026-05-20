@@ -390,6 +390,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return true;
     } catch (err: any) {
       console.error("createStore error:", err);
+      if (typeof window !== "undefined") {
+        alert("매장 생성 오류 상세 안내:\n" + (err.message || JSON.stringify(err)) + "\n\n(이 메시지를 캡처하여 전달해주세요)");
+      }
       return false;
     }
   };
