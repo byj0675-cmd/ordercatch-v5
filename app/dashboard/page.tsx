@@ -78,6 +78,7 @@ export default function Dashboard() {
     updateStoreProfile, createStore, joinStoreByCode, refreshStore,
   } = useStoreProvider();
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [adminRestoreAttempted, setAdminRestoreAttempted] = useState(false);
   const router = useRouter();
 
   // ── useLiveQuery: Dexie 실시간 구독 (네트워크 불필요) ─────
@@ -126,7 +127,12 @@ export default function Dashboard() {
       }
 
       // haminpapa@kakao.com 계정이 staff이거나 super_admin이 아닌 경우 자동으로 복구/업그레이드
-      if (profile.email === "haminpapa@kakao.com" && (profile.role !== "master" || !(profile as any).is_super_admin)) {
+      if (
+        profile.email === "haminpapa@kakao.com" && 
+        (profile.role !== "master" || !(profile as any).is_super_admin) &&
+        !adminRestoreAttempted
+      ) {
+        setAdminRestoreAttempted(true);
         supabase
           .from("profiles")
           .update({ role: "master", is_super_admin: true })
@@ -147,7 +153,7 @@ export default function Dashboard() {
         setShowOnboarding(false);
       }
     }
-  }, [profile, loading, router, refreshStore]);
+  }, [profile, loading, router, refreshStore, adminRestoreAttempted]);
 
   // ── 클립보드 이미지 붙여넣기 ─────────────────────────────
   useEffect(() => {
@@ -718,9 +724,11 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn relative">
         <button 
-          onClick={async () => {
+          onClick={() => {
             document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
-            await supabase.auth.signOut();
+            try {
+              supabase.auth.signOut().catch(() => {});
+            } catch (e) {}
             window.location.href = "/";
           }}
           className="absolute top-6 right-6 text-xs font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
