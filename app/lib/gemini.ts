@@ -81,16 +81,20 @@ export async function parseOrderStreamWithGemini(text: string, enabledFields?: s
   }
 
   const prompt = `주문 정보 추출. 현재 KST: ${now}.
-반드시 제공된 JSON Schema 형태로만 출력하세요. 설명 금지.
-이름:customerName, 연락처:phone, 상품:productName, 일시:pickupDate(ISO8601 or ""), 금액:amount(number).${disabledGuide}
-- 상대시점(예: '내일 3시')은 KST 기준으로 정확한 ISO로 연산하세요.
-- 고객명이 본문에 없거나 애매하면 "customerName" 같은 필드명이나 설명문을 넣지 말고 반드시 빈 문자열("")로 반환하세요.
-- 퀵 주소, 배송 주소 등 주소 정보는 options.address에 추출하여 매핑하세요.
-- 기본 정보(이름, 연락처, 상품명, 일시, 주소, 금액, 메모)를 제외한 모든 맞춤 주문 조건들(예: 레터링 문구, 맛 선택, 꽃 색상, 네일 디자인 옵션 등)은 customFields 배열로 분류하여 key와 value 형식으로 상세히 리스트업하세요.
-- 그 외 특이사항이나 메모는 options.memo에 넣으세요.
-intent는 신규: new, 수정: update.`;
+반드시 제공된 JSON Schema 형태로만 출력하세요. 설명 금지.${disabledGuide}
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+[필드 추출 규칙]
+- customerName: 고객 이름. 없으면 빈 문자열 "". 절대 "customerName" 같은 필드명 자체를 값으로 쓰지 말 것.
+- phone: 전화번호. 없으면 "".
+- productName: 주문서에 명시된 구체적인 상품명/서비스명을 그대로 추출. 예시: "흑임자설기 3호", "레터링 케이크 1호", "네일아트", "꽃다발". 절대 임의로 "케이크","상품" 등 일반명사로 바꾸지 말 것.
+- pickupDate: 픽업/예약 일시의 ISO8601. 시간대 규칙: 오전/오후 명시 없고 1~9시이면 오후(PM)로 해석. "2시반"="14:30", "3시"="15:00". 날짜가 상대적(예: 이번주 토요일)이면 KST 기준으로 정확히 계산. 모르면 "".
+- amount: 숫자 금액. 없으면 0.
+- options.address: 배송/퀵 주소.
+- options.memo: 기타 특이사항.
+- customFields: 기본 필드(이름/연락처/상품명/일시/주소/금액/메모) 외의 모든 주문별 맞춤 정보를 빠짐없이 key-value 배열로 추출. 예: 사이즈, 설기종류, 막대초 갯수, 문구, 레터링, 맛, 색상, 디자인 옵션 등 주문서에 있는 항목은 전부 포함할 것.
+- intent: 신규="new", 수정/변경 요청="update".`;
+
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
   const resultStream = await model.generateContentStream({
     contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
@@ -138,11 +142,14 @@ export async function parseOrderWithGemini(text: string, enabledFields?: string[
   }
 
   const prompt = `주문 정보 추출. 현재 KST: ${now}. JSON으로만 출력.${disabledGuide}
-- 고객명이 본문에 없거나 애매하면 "customerName" 같은 필드명이나 설명문을 넣지 말고 반드시 빈 문자열("")로 반환하세요.
+- customerName: 고객 이름. 없으면 "". 절대 필드명 자체를 값으로 쓰지 말 것.
+- productName: 주문서에 명시된 구체적 상품명을 그대로 추출. 임의로 일반명사로 바꾸지 말 것.
+- pickupDate: 오전/오후 명시 없고 1~9시이면 오후(PM)로 해석. "2시반"=14:30, "3시"=15:00.
 - 주소 정보는 options.address에 추출하여 매핑하세요.
-- 기본 정보를 제외한 맞춤 주문 사양은 customFields 배열로 분류하여 key, value로 추출해 주십시오.
+- 기본 정보 외 맞춤 주문 사양은 customFields 배열로 key, value로 전부 추출.
 - 그 외 특이사항이나 메모는 options.memo에 넣으세요.`;
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
 
   const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
