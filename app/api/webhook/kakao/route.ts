@@ -49,6 +49,17 @@ export async function POST(req: Request) {
 
     const storeId = profile.id;
 
+    // ── 매장별 주문서 템플릿 필드 조회 ──────────────────────
+    const { data: templateData } = await supabase
+      .from('store_order_templates')
+      .select('detected_fields')
+      .eq('store_id', storeId)
+      .maybeSingle();
+
+    const storeFields = templateData?.detected_fields && Array.isArray(templateData.detected_fields)
+      ? (templateData.detected_fields as string[])
+      : undefined;
+
     // ── 주문서 블록 추출 (마커 이전 잡담 제거) ──────────────
     const markerIdx = utterance.indexOf(ORDER_FORM_MARKER);
     const textToParse = utterance.slice(markerIdx);
@@ -56,7 +67,7 @@ export async function POST(req: Request) {
     // ── Gemini 파싱 (4.5초 타임아웃 — 카카오 5초 제한 대응) ─
     let parsedOrder;
     try {
-      const parsePromise = parseOrderWithGemini(textToParse);
+      const parsePromise = parseOrderWithGemini(textToParse, undefined, storeFields);
       const timeoutPromise = new Promise<null>((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), 4500)
       );
@@ -72,6 +83,16 @@ export async function POST(req: Request) {
 
     const custName = parsedOrder.customerName || '미상';
     const custPhone = parsedOrder.phone || '';
+
+    // customFields를 options에 병합
+    const mergedOptions: Record<string, any> = { ...parsedOrder.options };
+    if (parsedOrder.customFields && Array.isArray(parsedOrder.customFields)) {
+      parsedOrder.customFields.forEach((field) => {
+        if (field.key?.trim() && field.value?.trim()) {
+          mergedOptions[field.key.trim()] = field.value.trim();
+        }
+      });
+    }
 
     // ── 수정 의도 처리 ──────────────────────────────────────
     if (parsedOrder.intent === 'update') {
@@ -99,7 +120,7 @@ export async function POST(req: Request) {
         const updatePayload: Record<string, any> = { status: '수정됨' };
         if (parsedOrder.productName) updatePayload.product_name = parsedOrder.productName;
         if (parsedOrder.pickupDate) updatePayload.pickup_date = new Date(parsedOrder.pickupDate);
-        if (parsedOrder.options && Object.keys(parsedOrder.options).length > 0) updatePayload.options = parsedOrder.options;
+        if (Object.keys(mergedOptions).length > 0) updatePayload.options = mergedOptions;
 
         await supabase.from('orders').update(updatePayload).eq('id', existingId);
 
@@ -123,7 +144,7 @@ export async function POST(req: Request) {
       pickup_date: parsedOrder.pickupDate ? new Date(parsedOrder.pickupDate) : null,
       status: '입금대기',
       source: 'kakao_bot',
-      options: parsedOrder.options,
+      options: mergedOptions,
     }]);
 
     if (insertError) {

@@ -171,7 +171,8 @@ export default function ManualOrderSheet({
         body: JSON.stringify({ 
           text: parsingText, 
           storeId,
-          enabledFields
+          enabledFields,
+          storeFields: customFieldsNames
         }),
       });
       const data = await res.json();

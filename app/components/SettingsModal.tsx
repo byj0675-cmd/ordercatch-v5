@@ -19,8 +19,14 @@ interface TeamMember {
 }
 
 export default function SettingsModal({ store, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "fields" | "team" | "subscription" | "webhook" | "link">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "fields" | "template" | "team" | "subscription" | "webhook" | "link">("general");
   const { profile, storeInfo, isMaster, updateStoreProfile } = useStoreProvider();
+  
+  // 템플릿 설정 상태
+  const [sampleText, setSampleText] = useState("");
+  const [detectedFields, setDetectedFields] = useState<string[]>([]);
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(storeInfo?.name || profile?.store_name || store.name);
@@ -85,6 +91,119 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
       }
     }
   }, [profile?.store_id]);
+
+  // 템플릿 불러오기 및 customFields 동기화
+  useEffect(() => {
+    if (profile?.store_id) {
+      const loadTemplateAndSync = async () => {
+        try {
+          const { data, error } = await supabase
+            .from("store_order_templates")
+            .select("sample_text, detected_fields")
+            .eq("store_id", profile.store_id)
+            .maybeSingle();
+
+          if (!error && data) {
+            setSampleText(data.sample_text || "");
+            if (Array.isArray(data.detected_fields)) {
+              setDetectedFields(data.detected_fields);
+
+              // 로컬 custom fields 목록 병합 동기화
+              const savedCustom = localStorage.getItem(`ordercatch_custom_fields_${profile.store_id}`);
+              let localFields: CustomFieldItem[] = [];
+              if (savedCustom) {
+                try {
+                  localFields = JSON.parse(savedCustom);
+                } catch {}
+              }
+
+              // 원격 템플릿의 항목들을 로컬 필드로 동기화 (기존 속성 보존)
+              const merged = data.detected_fields.map((field: string, idx: number) => {
+                const existing = localFields.find(f => f.name === field);
+                return existing || {
+                  id: `synced_${idx}_${Date.now()}`,
+                  name: field,
+                  enabled: true
+                };
+              });
+
+              setCustomFields(merged);
+              localStorage.setItem(`ordercatch_custom_fields_${profile.store_id}`, JSON.stringify(merged));
+              window.dispatchEvent(new Event("ordercatch_fields_changed"));
+            }
+          }
+        } catch (err) {
+          console.error("Failed to sync template and fields", err);
+        }
+      };
+
+      loadTemplateAndSync();
+    }
+  }, [profile?.store_id]);
+
+  const handleDetectFields = async () => {
+    if (!sampleText.trim()) {
+      showToast("샘플 주문서 내용을 입력해주세요.", "warning");
+      return;
+    }
+    setIsDetecting(true);
+    try {
+      const res = await fetch("/api/orders/detect-fields", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sampleText }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "감지 중 오류 발생");
+      }
+      const data = await res.json();
+      setDetectedFields(data.fields || []);
+      showToast("주문서 항목을 자동으로 추출했습니다!", "success");
+    } catch (err: any) {
+      showToast(err.message || "항목 감지 실패", "error");
+    } finally {
+      setIsDetecting(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!profile?.store_id) return;
+    setIsSavingTemplate(true);
+    try {
+      // 1. Supabase 업서트
+      const { error } = await supabase
+        .from("store_order_templates")
+        .upsert({
+          store_id: profile.store_id,
+          sample_text: sampleText,
+          detected_fields: detectedFields
+        }, { onConflict: "store_id" });
+
+      if (error) throw error;
+
+      // 2. 로컬 스토리지 필드 동기화 및 업데이트
+      const nextCustom = detectedFields.map((field, idx) => {
+        const existing = customFields.find(f => f.name === field);
+        return existing || {
+          id: `auto_${idx}_${Date.now()}`,
+          name: field,
+          enabled: true
+        };
+      });
+
+      setCustomFields(nextCustom);
+      localStorage.setItem(`ordercatch_custom_fields_${profile.store_id}`, JSON.stringify(nextCustom));
+      window.dispatchEvent(new Event("ordercatch_fields_changed"));
+
+      showToast("템플릿과 필드 설정이 저장되었습니다.", "success");
+    } catch (err: any) {
+      console.error(err);
+      showToast("저장 중 오류가 발생했습니다.", "error");
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
 
   const copyToClipboard = async (text: string, label: string) => {
     try {
@@ -221,6 +340,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const TABS = [
     { id: "general", label: "일반" },
     { id: "fields", label: "주문서 필드 설정" },
+    { id: "template", label: "주문서 템플릿" },
     { id: "team", label: "팀 관리" },
     { id: "subscription", label: "구독 관리" },
     { id: "webhook", label: "웹훅 연동", isBeta: true },
@@ -599,6 +719,123 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ─── 주문서 템플릿 탭 ─── */}
+          {activeTab === "template" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                매장에서 실제로 사용하는 주문서 예시(샘플)를 등록해주세요. AI가 주문서 항목들을 감지하여 자동으로 장부 양식(커스텀 필드)을 생성하고 파싱 정확도를 극대화합니다.
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 700 }}>주문서 샘플 등록</label>
+                <textarea
+                  value={sampleText}
+                  onChange={(e) => setSampleText(e.target.value)}
+                  placeholder="예시:&#13;1. 성함/연락처 : 홍길동 010-1234-5678&#13;2. 픽업시간 : 토요일 2시반&#13;3. 사이즈 : 2호&#13;4. 문구 : 생일축하해"
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #cbd5e1",
+                    fontSize: 13,
+                    outline: "none",
+                    background: "#fff",
+                    minHeight: 120,
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                    fontFamily: "inherit"
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={handleDetectFields}
+                  disabled={isDetecting || !sampleText.trim()}
+                  style={{
+                    flex: 1,
+                    padding: "10px 14px",
+                    background: "rgba(79, 70, 229, 0.08)",
+                    border: "1px solid rgba(79, 70, 229, 0.2)",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    color: "var(--accent)",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    transition: "all 0.15s"
+                  }}
+                >
+                  {isDetecting ? "항목 분석 중..." : "✨ AI 항목 자동 감지"}
+                </button>
+              </div>
+
+              {detectedFields.length > 0 && (
+                <div style={{ background: "#f8fafc", padding: 16, borderRadius: 14, border: "1px solid rgba(0,0,0,0.05)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--text-secondary)", marginBottom: 8 }}>
+                    감지된 맞춤 주문서 항목
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {detectedFields.map((field, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          fontSize: 12,
+                          background: "#fff",
+                          border: "1px solid #cbd5e1",
+                          color: "var(--text-primary)",
+                          padding: "4px 10px",
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6
+                        }}
+                      >
+                        {field}
+                        <button
+                          onClick={() => setDetectedFields(prev => prev.filter((_, i) => i !== idx))}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                            color: "#94a3b8",
+                            fontSize: 10,
+                            fontWeight: 900
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 8 }}>
+                    * 필요 없는 항목은 ✕를 눌러 삭제할 수 있습니다.
+                  </div>
+                </div>
+              )}
+
+              <button
+                onClick={handleSaveTemplate}
+                disabled={isSavingTemplate}
+                style={{
+                  marginTop: 8,
+                  padding: "12px 16px",
+                  background: "var(--accent)",
+                  borderRadius: 12,
+                  border: "none",
+                  fontSize: 13,
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "center"
+                }}
+              >
+                {isSavingTemplate ? "템플릿 저장 중..." : "이 템플릿으로 주문 설정 저장"}
+              </button>
             </div>
           )}
 

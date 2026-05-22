@@ -182,7 +182,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           body: JSON.stringify({ 
             text: targetText, 
             storeId,
-            enabledFields: getEnabledFieldsArray()
+            enabledFields: getEnabledFieldsArray(),
+            storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name)
           }),
         });
         if (!res.ok) return null;
@@ -279,7 +280,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
         body: JSON.stringify({ 
           text, 
           storeId,
-          enabledFields: getEnabledFieldsArray()
+          enabledFields: getEnabledFieldsArray(),
+          storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name)
         }),
       });
       

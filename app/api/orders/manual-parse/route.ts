@@ -6,7 +6,7 @@ export const runtime = 'edge';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { text, storeId, enabledFields } = body;
+    const { text, storeId, enabledFields, storeFields } = body;
 
     if (!text) {
       return NextResponse.json({ error: "주문 텍스트가 없습니다." }, { status: 400 });
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "매장 식별 정보(storeId)가 없습니다." }, { status: 400 });
     }
 
-    const stream = await parseOrderStreamWithGemini(text, enabledFields);
+    const stream = await parseOrderStreamWithGemini(text, enabledFields, storeFields);
 
     return new Response(stream, {
       headers: {

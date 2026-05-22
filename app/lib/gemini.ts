@@ -63,7 +63,11 @@ const responseSchema: any = {
 };
 
 // ── Streaming Parser ──────────────────────────────────
-export async function parseOrderStreamWithGemini(text: string, enabledFields?: string[]): Promise<ReadableStream> {
+export async function parseOrderStreamWithGemini(
+  text: string,
+  enabledFields?: string[],
+  storeFields?: string[]
+): Promise<ReadableStream> {
   if (!apiKey || apiKey.trim().length < 10) {
     throw new Error("GEMINI_API_KEY is missing or invalid.");
   }
@@ -80,8 +84,14 @@ export async function parseOrderStreamWithGemini(text: string, enabledFields?: s
     }
   }
 
+  // 매장별 지정 항목 가이드 생성
+  let storeFieldsGuide = "";
+  if (storeFields && storeFields.length > 0) {
+    storeFieldsGuide = `\n[매장 맞춤 항목 필독] 이 매장에서는 다음 항목들을 중요하게 관리합니다. 본문에서 반드시 이 항목들을 찾아내어 customFields에 포함시키세요: ${storeFields.join(", ")}`;
+  }
+
   const prompt = `주문 정보 추출. 현재 KST: ${now}.
-반드시 제공된 JSON Schema 형태로만 출력하세요. 설명 금지.${disabledGuide}
+반드시 제공된 JSON Schema 형태로만 출력하세요. 설명 금지.${disabledGuide}${storeFieldsGuide}
 
 [필드 추출 규칙]
 - customerName: 고객 이름. 없으면 빈 문자열 "". 절대 "customerName" 같은 필드명 자체를 값으로 쓰지 말 것.
@@ -125,7 +135,11 @@ export async function parseOrderStreamWithGemini(text: string, enabledFields?: s
 }
 
 // ── Legacy Non-stream fallback ─────────────────────────
-export async function parseOrderWithGemini(text: string, enabledFields?: string[]): Promise<ParsedOrder | null> {
+export async function parseOrderWithGemini(
+  text: string,
+  enabledFields?: string[],
+  storeFields?: string[]
+): Promise<ParsedOrder | null> {
   if (!apiKey || apiKey.trim().length < 10) {
     throw new Error("GEMINI_API_KEY is missing or invalid.");
   }
@@ -141,7 +155,12 @@ export async function parseOrderWithGemini(text: string, enabledFields?: string[
     }
   }
 
-  const prompt = `주문 정보 추출. 현재 KST: ${now}. JSON으로만 출력.${disabledGuide}
+  let storeFieldsGuide = "";
+  if (storeFields && storeFields.length > 0) {
+    storeFieldsGuide = `\n[매장 맞춤 항목 필독] 본문에서 다음 항목들을 찾아내어 customFields에 포함시키세요: ${storeFields.join(", ")}`;
+  }
+
+  const prompt = `주문 정보 추출. 현재 KST: ${now}. JSON으로만 출력.${disabledGuide}${storeFieldsGuide}
 - customerName: 고객 이름. 없으면 "". 절대 필드명 자체를 값으로 쓰지 말 것.
 - productName: 주문서에 명시된 구체적 상품명을 그대로 추출. 임의로 일반명사로 바꾸지 말 것.
 - pickupDate: 오전/오후 명시 없고 1~9시이면 오후(PM)로 해석. "2시반"=14:30, "3시"=15:00.
