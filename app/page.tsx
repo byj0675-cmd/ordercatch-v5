@@ -238,7 +238,7 @@ function LandingContent() {
             </h2>
           </R>
           <R delay={80}>
-            <div className="land-bento land-bento-2" style={{ marginTop: 40, maxWidth: 760 }}>
+            <div className="land-bento land-bento-2" style={{ margin: "40px auto 0", maxWidth: 760 }}>
               {[
                 { icon: "📱", situation: "손님 카톡이 길면", pain: "뭐가 중요한지 다시 읽어야 해요" },
                 { icon: "⏰", situation: "바쁠 때 카톡 오면", pain: "나중에 보려다 그냥 묻혀버려요" },

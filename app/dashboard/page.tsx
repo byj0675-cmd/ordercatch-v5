@@ -321,7 +321,9 @@ export default function Dashboard() {
            <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">O</div>
-                <h1 className="text-xl font-black text-slate-900 tracking-tight desktop-only">OrderCatch</h1>
+                <h1 className="text-xl font-black text-slate-900 tracking-tight max-w-[140px] sm:max-w-[280px] md:max-w-none truncate">
+                  {activeStore.name || "OrderCatch"}
+                </h1>
                 {/* Pro 배지 */}
                 {isPro && (
                   <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black rounded-full">
@@ -599,6 +601,7 @@ export default function Dashboard() {
         dateLabel={selectedDay ? formatDate(selectedDay) : "오늘"}
         orders={selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders}
         totalRevenue={(selectedDay ? orders.filter(o => isSameDay(new Date(o.pickupDate), selectedDay)) : todayOrders).reduce((acc, cur) => acc + cur.amount, 0)}
+        storeName={activeStore.name || "OrderCatch"}
       />
 
       {/* 결제 요청 모달 */}
@@ -948,10 +951,11 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
 }
 
 // ── 프린트 섹션 ──────────────────────────────────────────────────
-function PrintSection({ dateLabel, orders, totalRevenue }: {
+function PrintSection({ dateLabel, orders, totalRevenue, storeName }: {
   dateLabel: string;
   orders: Order[];
   totalRevenue: number;
+  storeName: string;
 }) {
   const formatTimeOnly = (iso: string) => {
     const d = new Date(iso);
@@ -1004,7 +1008,7 @@ function PrintSection({ dateLabel, orders, totalRevenue }: {
         )}
 
         <div style={{ marginTop: 60, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#888" }}>
-          <span>OrderCatch</span>
+          <span>{storeName}</span>
           <span>주문 확인용 내부 문서</span>
         </div>
       </div>
