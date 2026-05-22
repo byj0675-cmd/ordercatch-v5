@@ -22,6 +22,7 @@ export interface ParsedOrder {
 }
 
 const groqApiKey = (process.env.GROQ_API_KEY || "").trim();
+const groqModelName = (process.env.GROQ_MODEL_NAME || "llama-3.1-8b-instant").trim();
 
 // ── Streaming Parser ──────────────────────────────────
 export async function parseOrderStreamWithGemini(
@@ -85,7 +86,7 @@ ${disabledGuide}${storeFieldsGuide}
       "Authorization": `Bearer ${groqApiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-specdec",
+      model: groqModelName,
       messages: [
         { role: "system", content: "You are a helpful assistant that extracts structured order details into precise JSON format." },
         { role: "user", content: prompt + "\n\n[주문서 텍스트]:\n" + text }
@@ -213,7 +214,7 @@ ${disabledGuide}${storeFieldsGuide}
       "Authorization": `Bearer ${groqApiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-specdec",
+      model: groqModelName,
       messages: [
         { role: "system", content: "You are a helpful assistant that extracts structured order details into precise JSON format." },
         { role: "user", content: prompt + "\n\n[주문서 텍스트]:\n" + text }
