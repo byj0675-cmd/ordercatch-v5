@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Order, SOURCE_CONFIG } from "../lib/mockData";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Order } from "../lib/mockData";
 import { showToast } from "./Toast";
 import { useStoreProvider, UsageLimitError } from "../context/StoreContext";
 import type { AddOrderPayload } from "../context/StoreContext";
 import DuplicateCheckModal from "./DuplicateCheckModal";
+import { supabase } from "@/utils/supabase/client";
 
 interface PasteBoardProps {
   onParsed?: (order: Partial<Order>) => void;
@@ -31,6 +32,60 @@ interface EditedData {
 const EXAMPLE_TEXTS = [
   "이번 주 토요일 오후 3시, 백설기 1호 주문할게요. 문구는 아버지 사랑해요, 퀵 받을 주소는 서울시 송파구 가락동 010-1234-5678",
 ];
+
+// 브라우저 단 이미지 리사이징 및 압축 함수 (WebP, Max Width: 800px, Quality: 0.75)
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const max_size = 800;
+
+        if (width > height) {
+          if (width > max_size) {
+            height *= max_size / width;
+            width = max_size;
+          }
+        } else {
+          if (height > max_size) {
+            width *= max_size / height;
+            height = max_size;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context is not available"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error("Canvas toBlob failed"));
+            }
+          },
+          "image/webp",
+          0.75
+        );
+      };
+      img.onerror = () => reject(new Error("Image load failed"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("FileReader failed"));
+    reader.readAsDataURL(file);
+  });
+}
 
 // Partial JSON 파서 (정규식 기반으로 스트림 중 실시간 값 추출)
 function extractFieldsFromPartialJson(jsonStr: string) {
@@ -88,6 +143,13 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [existingOrders, setExistingOrders] = useState<Order[]>([]);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
 
+  // 이미지 첨부 관련 상태
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const uploadedImageUrlRef = useRef<string | null>(null);
+  const uploadPromiseRef = useRef<Promise<string | null> | null>(null);
+
   // 활성화된 주문 필드 설정
   const [fieldsConfig, setFieldsConfig] = useState<Record<string, boolean>>({
     customerName: true,
@@ -112,6 +174,68 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const bgTextRef = useRef<string>("");
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // 이미지 업로드 처리 함수
+  const handleImageFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      showToast("이미지 파일만 가능합니다.", "warning");
+      return;
+    }
+    
+    // 프리뷰 즉시 설정
+    const reader = new FileReader();
+    reader.onload = (e) => setImagePreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+
+    // 백그라운드 업로드 시작
+    setUploadingImage(true);
+    const promise = (async (): Promise<string | null> => {
+      try {
+        const compressedBlob = await compressImage(file);
+        const path = `${storeId}/order_${Date.now()}.webp`;
+        const { error } = await supabase.storage.from("order_images").upload(path, compressedBlob, {
+          contentType: "image/webp"
+        });
+        if (error) throw error;
+        
+        const { data } = supabase.storage.from("order_images").getPublicUrl(path);
+        uploadedImageUrlRef.current = data.publicUrl;
+        showToast("사진 업로드 완료!", "success");
+        return data.publicUrl;
+      } catch (err) {
+        console.error("Upload error:", err);
+        showToast("사진 업로드 실패. 다시 시도해주세요.", "error");
+        return null;
+      } finally {
+        setUploadingImage(false);
+      }
+    })();
+    uploadPromiseRef.current = promise;
+    showToast("사진 업로드 중... 주문을 계속 정리하실 수 있습니다.", "info");
+  }, [storeId]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageFile(file);
+  };
+
+  // 클립보드 이미지 붙여넣기 감지
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) handleImageFile(file);
+          break;
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [handleImageFile]);
+
   // 필드 설정 로컬스토리지 로드
   const loadFieldsConfig = () => {
     if (storeId) {
@@ -123,7 +247,6 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           console.error("Failed to parse local fields config", e);
         }
       } else {
-        // 기본값 복원
         setFieldsConfig({
           customerName: true,
           productName: true,
@@ -395,6 +518,19 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     setShowDuplicateModal(false);
 
     try {
+      // 이미지 업로드 완료 대기
+      let finalImageUrl: string | null = uploadedImageUrlRef.current;
+      if (!imagePreview) {
+        finalImageUrl = null;
+      } else if (uploadingImage && uploadPromiseRef.current) {
+        finalImageUrl = await uploadPromiseRef.current;
+        if (!finalImageUrl) {
+          showToast("이미지 업로드에 실패했습니다.", "error");
+          setIsSaving(false);
+          return;
+        }
+      }
+
       const pickupIso = editedData.pickupDate
         ? new Date(editedData.pickupDate).toISOString()
         : new Date().toISOString();
@@ -406,6 +542,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       const options: Record<string, any> = {};
       if (fieldsConfig.memo && editedData.memo.trim()) options.memo = editedData.memo.trim();
       if (fieldsConfig.address && editedData.address.trim()) options.address = editedData.address.trim();
+      if (finalImageUrl) options.imageUrl = finalImageUrl;
 
       editedData.customFields.forEach((field) => {
         if (field.key.trim() && field.value.trim()) {
@@ -433,6 +570,9 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       setIsExpanded(false);
       setText("");
       setEditedData(null);
+      setImagePreview(null);
+      uploadedImageUrlRef.current = null;
+      uploadPromiseRef.current = null;
       if (onParsed) onParsed({ productName: editedData.productName, status: "신규주문" });
     } catch (e: any) {
       if (e instanceof UsageLimitError) {
@@ -476,6 +616,9 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     bgTextRef.current = "";
     bgParsedDataRef.current = null;
     bgParsingPromiseRef.current = null;
+    setImagePreview(null);
+    uploadedImageUrlRef.current = null;
+    uploadPromiseRef.current = null;
   };
 
   if (!isExpanded) {
@@ -515,6 +658,15 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
 
   return (
     <div className="animate-slideUp" style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.07)", borderRadius: 20, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.08)" }}>
+      {/* Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        style={{ display: "none" }} 
+        accept="image/*" 
+        onChange={handleFileChange} 
+      />
+
       {/* Header */}
       <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between", background: "linear-gradient(135deg, rgba(79,70,229,0.06), transparent)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -565,6 +717,52 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
                 disabled={isParsing}
                 style={{ width: "100%", padding: "14px", borderRadius: 12, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", background: "#fafafa", color: "#1e293b" }}
               />
+            </div>
+
+            {/* 이미지 첨부 영역 (첫 번째 입력 단계) */}
+            <div style={{ marginTop: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>참고 이미지 첨부 (선택)</div>
+              {imagePreview ? (
+                <div style={{ position: "relative", width: 100, height: 100, borderRadius: 12, overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                  <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {uploadingImage && (
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setImagePreview(null); uploadedImageUrlRef.current = null; uploadPromiseRef.current = null; }}
+                    style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isParsing}
+                  style={{
+                    padding: "10px 16px",
+                    background: "#f8fafc",
+                    border: "1.5px dashed #cbd5e1",
+                    borderRadius: 12,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: "#475569",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    WebkitTapHighlightColor: "transparent"
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  사진 올리기 또는 이미지 붙여넣기(Ctrl+V)
+                </button>
+              )}
             </div>
 
             {/* 주문서 자동 정리 버튼 */}
@@ -722,6 +920,54 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
                 주문 맞춤 필드 직접 추가
               </button>
             )}
+
+            {/* 이미지 첨부 영역 (두 번째 편집 단계) */}
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#94a3b8", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>참고 이미지 첨부</div>
+              {imagePreview ? (
+                <div style={{ position: "relative", width: "100%", height: 160, borderRadius: 16, overflow: "hidden", border: "1px solid #e2e8f0" }}>
+                  <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {uploadingImage && (
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <div style={{ width: 24, height: 24, border: "2.5px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.6s linear infinite" }} />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setImagePreview(null); uploadedImageUrlRef.current = null; uploadPromiseRef.current = null; }}
+                    style={{ position: "absolute", top: 8, right: 8, padding: "6px 12px", borderRadius: 8, background: "#ef4444", border: "none", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, boxShadow: "0 2px 8px rgba(239, 68, 68, 0.3)" }}
+                  >
+                    사진 삭제
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    width: "100%",
+                    height: 80,
+                    background: "#f8fafc",
+                    border: "1.5px dashed #cbd5e1",
+                    borderRadius: 16,
+                    cursor: "pointer",
+                    fontSize: 13,
+                    color: "#64748b",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 6,
+                    WebkitTapHighlightColor: "transparent"
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span>클릭하여 사진 첨부 또는 Ctrl+V로 이미지 붙여넣기</span>
+                </button>
+              )}
+            </div>
 
             {/* 이대로 주문 등록하기 */}
             <button
