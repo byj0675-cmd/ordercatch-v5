@@ -9,6 +9,12 @@ ON CONFLICT (id) DO NOTHING;
 -- Note: In Supabase, the 'storage.objects' table contains all files.
 -- We apply policies to this table filtered by bucket_id.
 
+-- Drop existing policies if they exist to avoid duplicate errors
+DROP POLICY IF EXISTS "Allow public read access to order_images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to upload order_images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to update order_images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow authenticated users to delete order_images" ON storage.objects;
+
 -- Policy A: Allow anyone (public/anonymous/authenticated) to read/view images
 CREATE POLICY "Allow public read access to order_images"
 ON storage.objects FOR SELECT
