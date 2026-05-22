@@ -1,8 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
 import { type SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co";
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key-placeholder";
+const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-project.supabase.co").trim();
+const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "public-anon-key-placeholder").trim();
 
 // Using createBrowserClient to support cookie-based session persistence
 export const supabase: SupabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey);

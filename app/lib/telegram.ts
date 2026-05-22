@@ -1,8 +1,8 @@
 // app/lib/telegram.ts
 
 export async function sendTelegramMessage(message: string) {
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
+  const botToken = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chatId = (process.env.TELEGRAM_CHAT_ID || "").trim();
 
   if (!botToken || !chatId) {
     console.error("Telegram bot token or chat ID is missing.");
