@@ -1,7 +1,5 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-export const runtime = 'edge';
-
 const apiKey = (process.env.GEMINI_API_KEY || "").trim();
 const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -92,7 +90,7 @@ export async function parseOrderStreamWithGemini(text: string, enabledFields?: s
 - 그 외 특이사항이나 메모는 options.memo에 넣으세요.
 intent는 신규: new, 수정: update.`;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const resultStream = await model.generateContentStream({
     contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
@@ -144,7 +142,7 @@ export async function parseOrderWithGemini(text: string, enabledFields?: string[
 - 주소 정보는 options.address에 추출하여 매핑하세요.
 - 기본 정보를 제외한 맞춤 주문 사양은 customFields 배열로 분류하여 key, value로 추출해 주십시오.
 - 그 외 특이사항이나 메모는 options.memo에 넣으세요.`;
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const result = await model.generateContent({
     contents: [{ role: "user", parts: [{ text: prompt + "\n\n" + text }] }],
