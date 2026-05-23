@@ -29,6 +29,60 @@ interface OrderDetailModalProps {
   onUpdated?: (updatedOrder: Order) => void;
 }
 
+// 브라우저 단 이미지 리사이징 및 압축 함수 (WebP, Max Width: 800px, Quality: 0.75)
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let width = img.width;
+        let height = img.height;
+        const max_size = 800;
+
+        if (width > height) {
+          if (width > max_size) {
+            height *= max_size / width;
+            width = max_size;
+          }
+        } else {
+          if (height > max_size) {
+            width *= max_size / height;
+            height = max_size;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context is not available"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error("Canvas toBlob failed"));
+            }
+          },
+          "image/webp",
+          0.75
+        );
+      };
+      img.onerror = () => reject(new Error("Image load failed"));
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error("FileReader failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
 const STATUSES: Order["status"][] = ["신규주문", "완료", "취소"];
 
 export default function OrderDetailModal({ order, onClose, onStatusChange, onDelete, onUpdated }: OrderDetailModalProps) {
@@ -61,23 +115,6 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   const cfg = STATUS_CONFIG[editStatus] || STATUS_CONFIG["신규주문"] || {};
   const src = SOURCE_CONFIG[order.source] || SOURCE_CONFIG["manual"] || {};
 
-  // 클립보드 이미지 붙여넣기 감지 (onPaste 이벤트 통합)
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith("image/")) {
-          const file = item.getAsFile();
-          if (file) handleImageFile(file);
-          break;
-        }
-      }
-    };
-    window.addEventListener("paste", handlePaste);
-    return () => window.removeEventListener("paste", handlePaste);
-  }, []);
-
   // 파일 선택 즉시 백그라운드 업로드 시작 — 저장 시 이미 완료되어 있음
   const handleImageFile = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -93,9 +130,12 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     setUploadingImage(true);
     const promise = (async (): Promise<string | null> => {
       try {
-        const ext = file.name.split(".").pop() || "jpg";
-        const path = `${order.storeId}/order_${Date.now()}.${ext}`;
-        const { error } = await supabase.storage.from("order_images").upload(path, file);
+        // 모바일 속도 및 스토리지 절약을 위한 WebP 압축 적용
+        const compressedBlob = await compressImage(file);
+        const path = `${order.storeId}/order_${Date.now()}.webp`;
+        const { error } = await supabase.storage.from("order_images").upload(path, compressedBlob, {
+          contentType: "image/webp",
+        });
         if (error) throw error;
         const { data } = supabase.storage.from("order_images").getPublicUrl(path);
         uploadedImageUrlRef.current = data.publicUrl;
@@ -113,6 +153,23 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     showToast("사진 업로드 중... 다른 정보를 계속 수정할 수 있습니다.", "info");
   }, [order.storeId]);
 
+  // 클립보드 이미지 붙여넣기 감지 (onPaste 이벤트 통합)
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) handleImageFile(file);
+          break;
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [handleImageFile]);
+
   const handleSave = async () => {
     // 이미지 업로드 대기 (이미 백그라운드 진행 중이면 완료 대기)
     let finalImageUrl: string | null = uploadedImageUrlRef.current;
@@ -122,7 +179,10 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
       setIsSaving(true);
       finalImageUrl = await uploadPromiseRef.current;
       setIsSaving(false);
-      if (!finalImageUrl) return;
+      if (!finalImageUrl) {
+        showToast("사진 업로드에 실패하여 이미지 제외 정보만 저장합니다.", "warning");
+        finalImageUrl = order.options?.imageUrl || null;
+      }
     }
 
     const pickupIso = editDate
