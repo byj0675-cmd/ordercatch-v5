@@ -294,6 +294,55 @@ export default function Dashboard() {
       .sort((a, b) => new Date(a.pickupDate).getTime() - new Date(b.pickupDate).getTime());
   }, [orders]);
 
+  const metrics = useMemo(() => {
+    const today = new Date();
+    let todayCount = 0;
+    let todayRevenue = 0;
+    let monthCount = 0;
+    let monthRevenue = 0;
+    let pendingCount = 0;
+
+    (orders ?? []).forEach((o) => {
+      if (!o.pickupDate) return;
+      const d = new Date(o.pickupDate);
+      if (isNaN(d.getTime())) return;
+
+      const isCancelled = o.status === "취소";
+
+      // 오늘 픽업 확인
+      if (
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate()
+      ) {
+        todayCount++;
+        if (!isCancelled) todayRevenue += (o.amount || 0);
+      }
+
+      // 이달 픽업 확인
+      if (
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth()
+      ) {
+        monthCount++;
+        if (!isCancelled) monthRevenue += (o.amount || 0);
+      }
+
+      // 대기중 신규 주문 확인
+      if (o.status === "신규주문") {
+        pendingCount++;
+      }
+    });
+
+    return {
+      todayCount,
+      todayRevenue,
+      monthCount,
+      monthRevenue,
+      pendingCount,
+    };
+  }, [orders]);
+
   // ── 로딩 가드: profile이 없고 loading중인 경우만 스켈레톤 ──
   if (loading && rawLocalOrders === undefined) {
     return <DashboardSkeleton />;
@@ -316,8 +365,8 @@ export default function Dashboard() {
     <>
       <ToastContainer />
 
-      <div id="dashboard-main" className="min-h-screen bg-slate-50">
-        <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-slate-100 h-16 flex items-center px-4 md:px-8">
+      <div id="dashboard-main" className="min-h-screen bg-transparent">
+        <header className="sticky top-0 z-40 bg-white/50 backdrop-blur-md border-b border-slate-200/30 h-16 flex items-center px-4 md:px-8">
            <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">O</div>
@@ -344,24 +393,66 @@ export default function Dashboard() {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-          {/* 스태프는 매출 카드 숨김 */}
-          {isMaster && (
-            <div className="hidden lg:grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-              {SUMMARY_CARDS.slice(1, 4).map(card => (
-                <button
-                  key={card.key}
-                  onClick={() => {
-                    setActiveFilter(card.key);
-                    setViewMode("list");
-                  }}
-                  className={`p-4 rounded-3xl text-left transition-all ${activeFilter === card.key ? "ring-2 ring-indigo-600 ring-offset-2" : "hover:shadow-lg"} bg-white shadow-md border border-slate-50`}
-                >
-                  <div className="text-sm font-bold text-slate-400">{card.label}</div>
-                  <div className="text-2xl font-black text-slate-900">{summaryData[card.key]}</div>
-                </button>
-              ))}
+          {/* 상단 통합 통계 위젯 (반응형 글래스모피즘 카드) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {/* 1. 오늘의 픽업/예약 */}
+            <div className="glass-card p-6 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full">
+                  📅 오늘 픽업/예약
+                </span>
+                <h3 className="text-3xl font-black text-slate-800 mt-4 leading-none">
+                  {metrics.todayCount} <span className="text-sm font-bold text-slate-500">건</span>
+                </h3>
+              </div>
+              {isMaster && (
+                <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">오늘 주문 금액 합계</span>
+                  <span className="font-extrabold text-slate-700">{metrics.todayRevenue.toLocaleString()}원</span>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* 2. 이번 달 누적 예약 */}
+            <div className="glass-card p-6 flex flex-col justify-between">
+              <div>
+                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full">
+                  📈 이번 달 총 예약
+                </span>
+                <h3 className="text-3xl font-black text-slate-800 mt-4 leading-none">
+                  {metrics.monthCount} <span className="text-sm font-bold text-slate-500">건</span>
+                </h3>
+              </div>
+              {isMaster && (
+                <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold">이번 달 총 매출액</span>
+                  <span className="font-extrabold text-indigo-600">{metrics.monthRevenue.toLocaleString()}원</span>
+                </div>
+              )}
+            </div>
+
+            {/* 3. 신규 대기 주문 */}
+            <button
+              onClick={() => {
+                setActiveFilter("신규주문");
+                setViewMode("list");
+              }}
+              className="glass-card p-6 text-left flex flex-col justify-between cursor-pointer active:scale-[0.99] transition-all"
+            >
+              <div>
+                <span className="text-[11px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2.5 py-1 rounded-full">
+                  ⚡ 대기 중인 신규 주문
+                </span>
+                <h3 className="text-3xl font-black text-rose-600 mt-4 leading-none">
+                  {metrics.pendingCount} <span className="text-sm font-bold text-rose-400">건</span>
+                </h3>
+              </div>
+              <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs">
+                <span className="text-slate-400 font-bold">처리 필요 주문 건</span>
+                <span className="font-extrabold text-rose-500">지금 확인하기 →</span>
+              </div>
+            </button>
+          </div>
 
           {/* 스태프 모드 라벨 */}
           {!isMaster && profile?.store_id && (
@@ -472,8 +563,8 @@ export default function Dashboard() {
             </div>
 
             <aside className="hidden lg:block lg:col-span-4 sticky top-28 h-[calc(100vh-140px)]">
-               <div className="h-full bg-white rounded-3xl border border-slate-100 shadow-xl overflow-hidden flex flex-col">
-                  <div className="p-6 border-b border-slate-50 flex items-center justify-between">
+               <div className="h-full glass-card overflow-hidden flex flex-col">
+                  <div className="p-6 border-b border-slate-100/50 flex items-center justify-between">
                      <div>
                         <h3 className="text-lg font-black text-slate-900 leading-tight">
                            {selectedDay ? formatDate(selectedDay) : "오늘"}의 주문

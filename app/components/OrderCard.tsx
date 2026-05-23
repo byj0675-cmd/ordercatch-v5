@@ -23,15 +23,15 @@ export function OptionChips({ options }: { options: Order["options"] }) {
       {chips.map((c, i) => (
         <span key={i} style={{
           fontSize: 12, padding: "3px 10px", borderRadius: 20,
-          background: "rgba(79,70,229,0.06)", color: "#4f46e5", fontWeight: 700,
-          border: "1px solid rgba(79,70,229,0.1)",
+          background: "var(--accent-soft)", color: "var(--accent)", fontWeight: 700,
+          border: "1px solid var(--accent-border)",
         }}>{c}</span>
       ))}
     </div>
   );
 }
 
-function ClockIcon({ color = "#4f46e5" }: { color?: string }) {
+function ClockIcon({ color = "var(--accent)" }: { color?: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0 }}>
       <circle cx="8" cy="8" r="6.5" stroke={color} strokeWidth="1.8" />
@@ -101,7 +101,7 @@ export default function OrderCard({
         position: "absolute", inset: 0,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 24px",
-        background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "#4f46e5" : "#cbd5e1",
+        background: dragAction === "call" ? "#10b981" : dragAction === "complete" ? "var(--accent)" : "#cbd5e1",
         color: "#fff", fontSize: 16, fontWeight: 800,
       }}>
         <span style={{ opacity: dragAction === "call" ? 1 : 0.5 }}>전화</span>
@@ -120,19 +120,28 @@ export default function OrderCard({
         onDrag={handleDrag}
         onDragEnd={handleDragEnd}
         animate={controls}
+        whileHover={{
+          y: -4,
+          borderColor: "rgba(255, 111, 67, 0.25)",
+          boxShadow: "0 12px 28px rgba(255, 111, 67, 0.08), 0 1px 2px rgba(0, 0, 0, 0.01)",
+          background: "rgba(255, 255, 255, 0.75)"
+        }}
+        transition={{ type: "tween", ease: [0.16, 1, 0.3, 1], duration: 0.3 }}
         style={{
           touchAction: "pan-y",
           width: "100%",
           textAlign: "left",
-          background: "#ffffff",
-          border: "1px solid rgba(0,0,0,0.05)",
+          background: "rgba(255, 255, 255, 0.65)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(255, 255, 255, 0.45)",
           borderRadius: 20,
           padding: "16px 18px",
           display: "flex",
           flexDirection: "column",
           gap: 10,
           cursor: "pointer",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.02)",
           position: "relative",
           outline: "none",
           userSelect: "none",
@@ -141,9 +150,9 @@ export default function OrderCard({
       >
         {/* Row 1: Time + Status Badge */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(79,70,229,0.06)", padding: "4px 10px", borderRadius: 100 }}>
-             <ClockIcon color="#4f46e5" />
-             <span style={{ fontSize: 13, fontWeight: 700, color: "#4f46e5" }}>{formatTime(order.pickupDate)}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--accent-soft)", padding: "4px 10px", borderRadius: 100 }}>
+             <ClockIcon color="var(--accent)" />
+             <span style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>{formatTime(order.pickupDate)}</span>
           </div>
           <span style={{
             fontSize: 12, fontWeight: 800, padding: "4px 12px", borderRadius: 100,
