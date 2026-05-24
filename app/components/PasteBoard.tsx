@@ -482,6 +482,10 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     if (editedData.customerName.trim() && editedData.phone.trim().length >= 10) {
       try {
         const { db } = await import("@/app/lib/db");
+        // 중복 체크: 같은 이름 + 같은 번호 + 같은 픽업 날짜 (C안)
+        const newPickupDay = editedData.pickupDate
+          ? new Date(editedData.pickupDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
         const existing = await db.orders
           .where("storeId")
           .equals(storeId)
@@ -489,7 +493,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
             (o) =>
               !o.isDeleted &&
               o.customerName === editedData!.customerName.trim() &&
-              o.phone === editedData!.phone.trim()
+              o.phone === editedData!.phone.trim() &&
+              o.pickupDate.slice(0, 10) === newPickupDay
           )
           .toArray();
 
@@ -518,17 +523,20 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     setShowDuplicateModal(false);
 
     try {
-      // 이미지 업로드 완료 대기
-      let finalImageUrl: string | null = uploadedImageUrlRef.current;
+      // 이미지 업로드 완료 대기 — promise가 있으면 무조건 완료까지 대기
+      let finalImageUrl: string | null = null;
       if (!imagePreview) {
         finalImageUrl = null;
-      } else if (uploadingImage && uploadPromiseRef.current) {
+      } else if (uploadPromiseRef.current) {
+        // 아직 업로드 진행 중이거나 완료되었지만 ref에서 가져와야 하는 경우 모두 대기
         finalImageUrl = await uploadPromiseRef.current;
         if (!finalImageUrl) {
-          showToast("이미지 업로드에 실패했습니다.", "error");
-          setIsSaving(false);
-          return;
+          showToast("이미지 업로드에 실패했습니다. 이미지 없이 저장합니다.", "warning");
+          // 이미지 실패 시에도 주문 자체는 저장 진행
         }
+      } else {
+        // promise가 없지만 이미 업로드된 URL이 있는 경우
+        finalImageUrl = uploadedImageUrlRef.current;
       }
 
       const pickupIso = editedData.pickupDate
@@ -624,7 +632,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   if (!isExpanded) {
     return (
       <button
-        onClick={() => setIsExpanded(true)}
+        onPointerDown={(e) => { e.preventDefault(); setIsExpanded(true); }}
+        className="pasteboard-collapsed-btn"
         style={{
           width: "100%", minHeight: 64,
           padding: "14px 20px",
@@ -633,10 +642,9 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           borderRadius: 16, cursor: "pointer",
           display: "flex", alignItems: "center", gap: 12,
           WebkitTapHighlightColor: "transparent",
+          touchAction: "manipulation",
           transition: "background 0.15s",
         }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(79,70,229,0.11)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "linear-gradient(135deg, rgba(79,70,229,0.07), rgba(124,58,237,0.04))"; }}
       >
         <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(79,70,229,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1003,7 +1011,12 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
         />
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (hover: hover) {
+          .pasteboard-collapsed-btn:hover { background: rgba(79,70,229,0.11) !important; }
+        }
+      `}</style>
     </div>
   );
 }

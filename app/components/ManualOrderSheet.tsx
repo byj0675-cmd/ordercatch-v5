@@ -6,6 +6,7 @@ import { showToast } from "./Toast";
 import { useStoreProvider, UsageLimitError } from "../context/StoreContext";
 import type { AddOrderPayload } from "../context/StoreContext";
 import DuplicateCheckModal from "./DuplicateCheckModal";
+import { Order } from "../lib/mockData";
 
 interface ManualOrderSheetProps {
   storeId: string;
@@ -96,6 +97,11 @@ export default function ManualOrderSheet({
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [status, setStatus] = useState<OrderStatus>("신규주문");
+
+  // 중복 체크 상태
+  const [existingOrders, setExistingOrders] = useState<Order[]>([]);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<AddOrderPayload | null>(null);
 
   interface CustomFieldVal {
     name: string;
@@ -206,45 +212,91 @@ export default function ManualOrderSheet({
     }
   };
 
-  const handleSave = async () => {
+  const buildPayload = (): AddOrderPayload | null => {
     if ((mode === "manual" || mode === "ai") && (!customerName || !productName)) {
-      return showToast("필수 정보를 입력해주세요.", "warning");
+      showToast("필수 정보를 입력해주세요.", "warning");
+      return null;
     }
     if (mode === "personal" && !productName) {
-      return showToast("일정 제목을 입력해주세요.", "warning");
+      showToast("일정 제목을 입력해주세요.", "warning");
+      return null;
     }
 
-    try {
-      const pickupIso = pickupDate
-        ? new Date(`${pickupDate}T${pickupTime || "09:00"}:00`).toISOString()
-        : new Date().toISOString();
+    const pickupIso = pickupDate
+      ? new Date(`${pickupDate}T${pickupTime || "09:00"}:00`).toISOString()
+      : new Date().toISOString();
 
-      const options: Record<string, any> = { memo: memo.trim() };
-      if (mode === "personal") {
-        options.isPersonal = true;
-        if (endTime) options.endTime = new Date(`${pickupDate}T${endTime}:00`).toISOString();
-      } else {
-        customFields.forEach((field) => {
-          if (field.name.trim() && field.value.trim()) {
-            options[field.name.trim()] = field.value.trim();
-          }
-        });
+    const options: Record<string, any> = { memo: memo.trim() };
+    if (mode === "personal") {
+      options.isPersonal = true;
+      if (endTime) options.endTime = new Date(`${pickupDate}T${endTime}:00`).toISOString();
+    } else {
+      customFields.forEach((field) => {
+        if (field.name.trim() && field.value.trim()) {
+          options[field.name.trim()] = field.value.trim();
+        }
+      });
+    }
+
+    return {
+      storeId,
+      storeName: storeInfo?.name || profile?.store_name || "",
+      storeType: storeInfo?.category || profile?.category || "dessert",
+      customerName: mode === "personal" ? "개인일정" : customerName.trim(),
+      phone: mode === "personal" ? "" : phone.trim(),
+      productName: productName.trim(),
+      pickupDate: pickupIso,
+      amount: mode === "personal" ? 0 : Number(amount.replace(/[^0-9]/g, "")) || 0,
+      status: mode === "personal" ? "신규주문" : status,
+      source: "manual",
+      options,
+    };
+  };
+
+  const handleSave = async () => {
+    const payload = buildPayload();
+    if (!payload) return;
+
+    // 중복 체크 (C안: 같은 이름 + 같은 번호 + 같은 픽업 날짜)
+    if (mode !== "personal" && customerName.trim() && phone.trim().length >= 10) {
+      try {
+        const { db } = await import("@/app/lib/db");
+        const newPickupDay = payload.pickupDate.slice(0, 10);
+        const existing = await db.orders
+          .where("storeId")
+          .equals(storeId)
+          .filter(
+            (o) =>
+              !o.isDeleted &&
+              o.customerName === customerName.trim() &&
+              o.phone === phone.trim() &&
+              o.pickupDate.slice(0, 10) === newPickupDay
+          )
+          .toArray();
+
+        if (existing.length > 0) {
+          const mapped: Order[] = existing.map((o) => ({
+            id: o.id, storeId: o.storeId, storeName: o.storeName, storeType: o.storeType as any,
+            customerName: o.customerName, phone: o.phone, productName: o.productName,
+            pickupDate: o.pickupDate, status: o.status as any, amount: o.amount,
+            options: o.options as any, source: o.source, createdAt: o.createdAt,
+          }));
+          setExistingOrders(mapped);
+          setPendingPayload(payload);
+          setShowDuplicateModal(true);
+          return;
+        }
+      } catch (e) {
+        console.error("[ManualOrderSheet] Duplicate check error:", e);
       }
+    }
 
-      const payload: AddOrderPayload = {
-        storeId,
-        storeName: storeInfo?.name || profile?.store_name || "",
-        storeType: storeInfo?.category || profile?.category || "dessert",
-        customerName: mode === "personal" ? "개인일정" : customerName.trim(),
-        phone: mode === "personal" ? "" : phone.trim(),
-        productName: productName.trim(),
-        pickupDate: pickupIso,
-        amount: mode === "personal" ? 0 : Number(amount.replace(/[^0-9]/g, "")) || 0,
-        status: mode === "personal" ? "신규주문" : status,
-        source: "manual",
-        options,
-      };
+    await doSave(payload);
+  };
 
+  const doSave = async (payload: AddOrderPayload) => {
+    setShowDuplicateModal(false);
+    try {
       await addOrder(payload);
 
       showToast(mode === "personal" ? "일정이 등록되었습니다." : "주문이 등록되었습니다.", "success");
@@ -531,6 +583,15 @@ export default function ManualOrderSheet({
           </div>
         )}
       </div>
+
+      {showDuplicateModal && (
+        <DuplicateCheckModal
+          existingOrders={existingOrders}
+          onNewOrder={() => { if (pendingPayload) doSave(pendingPayload); }}
+          onEditOrder={() => { setShowDuplicateModal(false); }}
+          onClose={() => setShowDuplicateModal(false)}
+        />
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

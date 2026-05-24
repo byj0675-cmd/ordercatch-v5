@@ -62,6 +62,7 @@ function toOrder(o: LocalOrder): Order {
 export default function Dashboard() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showManualSheet, setShowManualSheet] = useState(false);
@@ -266,8 +267,18 @@ export default function Dashboard() {
     if (activeFilter !== "all") {
       result = result.filter((o) => o.status === activeFilter);
     }
+    // 검색어 필터링 (고객명 또는 전화번호)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (o) =>
+          o.customerName.toLowerCase().includes(q) ||
+          o.phone.replace(/-/g, "").includes(q.replace(/-/g, "")) ||
+          o.productName.toLowerCase().includes(q)
+      );
+    }
     return result;
-  }, [orders, activeFilter, selectedStoreId]);
+  }, [orders, activeFilter, selectedStoreId, searchQuery]);
 
   const summaryData = useMemo(() => {
     const storeOrders =
@@ -507,6 +518,34 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {/* 🔍 검색 입력창 */}
+                <div className="relative mb-4">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"/>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      if (e.target.value.trim()) setViewMode("list");
+                    }}
+                    placeholder="고객명, 전화번호, 상품명으로 검색..."
+                    className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200/80 rounded-2xl text-sm font-bold text-slate-800 placeholder:text-slate-400 placeholder:font-medium outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 transition-colors text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
                 {/* 주문 진행 상태별 필터 탭 바 (이모지 삭제 및 모노톤 디자인) */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar" style={{ WebkitOverflowScrolling: "touch" }}>
                   {([
@@ -617,8 +656,8 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setShowManualSheet(true)}
-              style={{ flexShrink: 0, width: 56, height: 56, background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', WebkitTapHighlightColor: 'transparent', fontSize: 28, lineHeight: 1, margin: '0 12px', flexDirection: 'column' as const }}
+              onPointerDown={(e) => { e.preventDefault(); if (!showManualSheet) setShowManualSheet(true); }}
+              style={{ flexShrink: 0, width: 56, height: 56, background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', border: 'none', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation', fontSize: 28, lineHeight: 1, margin: '0 12px', flexDirection: 'column' as const }}
               aria-label="주문 등록"
             >
                +
