@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useStoreProvider } from "./context/StoreContext";
 import Image from "next/image";
 import RotatingText from "./components/RotatingText";
+import BetaApplyModal from "./components/BetaApplyModal";
 
 function useReveal() {
   const ref = useRef<HTMLDivElement>(null);
@@ -198,6 +199,7 @@ function LandingContent() {
   const { loginAsMockUser } = useStoreProvider();
   const [scrolled, setScrolled] = useState(false);
   const [isLocal, setIsLocal] = useState(false);
+  const [isBetaModalOpen, setIsBetaModalOpen] = useState(false);
   useEffect(() => {
     const err = sp.get("error");
     if (err) showToast(`로그인 오류: ${decodeURIComponent(err)}`, "error");
@@ -504,12 +506,12 @@ function LandingContent() {
           <R>
             <div className="land-section-label">요금표</div>
             <h2 className="land-section-title">부담 없이 쓰시다가 필요하면 올리세요.</h2>
-            <p className="land-section-sub">강요 없습니다.</p>
+            <p className="land-section-sub" style={{ color: "#FF7F32", fontWeight: 700 }}>🎁 1기 사전 신청 시 정가 인상 후에도 평생 월 4,950원 동결 혜택 제공</p>
           </R>
           <div className="land-bento land-bento-2" style={{ maxWidth: 720, margin: "0 auto" }}>
             {[
-              { name: "무료", price: "0원", period: "언제까지나", featured: false, desc: "주문이 많지 않은 분들", features: ["월 20건 주문 등록", "카톡 메시지 자동 파싱", "날짜별 장부 정리"], note: "신용카드 입력 없이 바로 시작", cta: "지금 시작" },
-              { name: "프로", price: "4,950원", period: "/ 월 (50% 할인)", featured: true, desc: "주문이 월 20건 넘어가는 분들", features: ["무제한 주문 등록", "카카오 자동 수신 연동", "매출 요약 · CSV 내보내기"], note: "지금 가입하면 평생 50% 할인 혜택", cta: "50% 할인받고 시작" },
+              { name: "무료", price: "0원", period: "언제까지나", featured: false, desc: "주문이 많지 않은 분들", features: ["월 20건 주문 등록", "카톡 메시지 자동 파싱", "날짜별 장부 정리"], note: "신용카드 입력 없이 바로 시작", cta: "지금 시작", action: login },
+              { name: "프로", price: "4,950원", period: "/ 월", featured: true, desc: "주문이 월 20건 넘어가는 분들 (정가 9,900원 예정)", features: ["무제한 주문 등록", "카카오 자동 수신 연동", "매출 요약 · CSV 내보내기"], note: "자동화 업데이트 후 정가 인상 시에도 평생 4,950원 동결", cta: "1기 사전 경험단 신청하기", action: () => setIsBetaModalOpen(true) },
             ].map((plan, i) => (
               <R key={i} delay={i * 80}>
                 <div className={`land-price-card ${plan.featured ? "featured" : ""}`}>
@@ -518,7 +520,7 @@ function LandingContent() {
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                       </svg>
-                      선착순 100명 한정
+                      선착순 15명 한정 (1기)
                     </div>
                   )}
                   <div style={{ fontSize: 13, fontWeight: 700, color: plan.featured ? "#FF7F32" : "#888", marginBottom: 8 }}>{plan.name}</div>
@@ -533,7 +535,7 @@ function LandingContent() {
                     ))}
                   </ul>
                   <div style={{ fontSize: 12, color: "#aaa", marginBottom: 20 }}>{plan.note}</div>
-                  <button onClick={login} className={plan.featured ? "land-cta" : ""} style={plan.featured ? { width: "100%", justifyContent: "center", padding: "14px" } : { width: "100%", padding: "14px", borderRadius: 12, border: "1px solid rgba(45,45,45,0.15)", background: "transparent", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                  <button onClick={plan.action} className={plan.featured ? "land-cta" : ""} style={plan.featured ? { width: "100%", justifyContent: "center", padding: "14px" } : { width: "100%", padding: "14px", borderRadius: 12, border: "1px solid rgba(45,45,45,0.15)", background: "transparent", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
                     {plan.cta}
                   </button>
                 </div>
@@ -551,12 +553,12 @@ function LandingContent() {
         <R>
           <div style={{ maxWidth: 520, margin: "0 auto" }}>
             <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 16 }}>오늘 밤 장부 쓸 시간 아끼세요</p>
-            <h2>지금 시작하면<br />오늘 주문부터 바로 됩니다.</h2>
-            <p style={{ fontSize: 15, color: "#9ca3af", margin: "16px 0 36px", lineHeight: 1.7 }}>카카오 계정만 있으면 됩니다. 설치 없어요.</p>
-            <button onClick={login} className="land-cta" style={{ fontSize: 16, padding: "16px 32px" }}>
-              평생 50% 할인 혜택받고 시작하기
+            <h2>지금 신청하면<br />평생 월 4,950원 요금 동결</h2>
+            <p style={{ fontSize: 15, color: "#9ca3af", margin: "16px 0 36px", lineHeight: 1.7 }}>카카오 계정만 있으면 즉시 시작할 수 있습니다.</p>
+            <button onClick={() => setIsBetaModalOpen(true)} className="land-cta" style={{ fontSize: 16, padding: "16px 32px" }}>
+              평생 가격 동결받고 1기 사전 신청하기
             </button>
-            <p style={{ fontSize: 12, color: "#4b5563", marginTop: 14 }}>월 20건 영구 무료 · 언제든 해지 가능</p>
+            <p style={{ fontSize: 12, color: "#4b5563", marginTop: 14 }}>선착순 15명 한정 모집 중 · 첫 달 무료 체험</p>
           </div>
         </R>
       </div>
@@ -581,6 +583,9 @@ function LandingContent() {
 
         <div style={{ fontSize: 11, color: "#374151" }}>© 2026 오더캐치 · 소상공인 주문 장부 서비스</div>
       </footer>
+
+      {/* Beta Apply Modal */}
+      <BetaApplyModal isOpen={isBetaModalOpen} onClose={() => setIsBetaModalOpen(false)} />
 
       <style>{`
         @keyframes fadeUp { from { opacity:0;transform:translateY(16px); } to { opacity:1;transform:translateY(0); } }

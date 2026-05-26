@@ -235,11 +235,22 @@ export default function Dashboard() {
 
   const handleLogout = async () => {
     try {
+      // 1. Mock 유저 쿠키 삭제
       document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise((resolve) => setTimeout(resolve, 800))
-      ]);
+      
+      // 2. Supabase SSR 관련 쿠키 강제 초기화 (브라우저 지연 방지)
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.startsWith("sb-") && cookie.includes("-auth-token")) {
+          const eqPos = cookie.indexOf("=");
+          const name = eqPos > -1 ? cookie.substring(0, eqPos) : cookie;
+          document.cookie = `${name}=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+        }
+      }
+
+      // 3. Supabase Auth 로그아웃 실행
+      await supabase.auth.signOut();
     } catch (err) {
       console.warn("Logout error:", err);
     } finally {
@@ -729,6 +740,7 @@ export default function Dashboard() {
         <OnboardingModal
           onClose={() => setShowOnboarding(false)}
           onSaved={() => { setShowOnboarding(false); refreshStore(); }}
+          onLogout={handleLogout}
         />
       )}
 
@@ -829,7 +841,7 @@ function formatDate(d: Date) {
 }
 
 // ── 온보딩 모달 ─────────────────────────────────────────────────
-function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+function OnboardingModal({ onClose, onSaved, onLogout }: { onClose: () => void; onSaved: () => void; onLogout: () => void }) {
   const { createStore, joinStoreByCode } = useStoreProvider();
   const [mode, setMode] = useState<"choose" | "create" | "join">("choose");
   const [name, setName] = useState("");
@@ -874,13 +886,7 @@ function OnboardingModal({ onClose, onSaved }: { onClose: () => void; onSaved: (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
       <div className="w-full max-w-md bg-white rounded-[32px] p-8 shadow-2xl animate-scaleIn relative">
         <button 
-          onClick={() => {
-            document.cookie = "ordercatch-mock-user=; path=/; max-age=0";
-            try {
-              supabase.auth.signOut().catch(() => {});
-            } catch (e) {}
-            window.location.href = "/";
-          }}
+          onClick={onLogout}
           className="absolute top-6 right-6 text-xs font-bold text-slate-400 hover:text-slate-600 bg-slate-50 px-3 py-1.5 rounded-lg transition-colors"
         >
           로그아웃
