@@ -171,6 +171,7 @@ export default function ManualOrderSheet({
       const customFieldsNames = customFields.map(f => f.name);
       const enabledFields = [...basicFields, ...customFieldsNames];
 
+      const storeProducts = localStorage.getItem(`ordercatch_store_products_${storeId}`) || "";
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,7 +179,8 @@ export default function ManualOrderSheet({
           text: parsingText, 
           storeId,
           enabledFields,
-          storeFields: customFieldsNames
+          storeFields: customFieldsNames,
+          storeProducts
         }),
       });
       const data = await res.json();

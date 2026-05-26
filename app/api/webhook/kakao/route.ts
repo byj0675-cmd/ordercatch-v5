@@ -49,16 +49,18 @@ export async function POST(req: Request) {
 
     const storeId = profile.id;
 
-    // ── 매장별 주문서 템플릿 필드 조회 ──────────────────────
+    // ── 매장별 주문서 템플릿 필드 및 취급 상품 조회 ───────────
     const { data: templateData } = await supabase
       .from('store_order_templates')
-      .select('detected_fields')
+      .select('detected_fields, store_products')
       .eq('store_id', storeId)
       .maybeSingle();
 
     const storeFields = templateData?.detected_fields && Array.isArray(templateData.detected_fields)
       ? (templateData.detected_fields as string[])
       : undefined;
+
+    const storeProducts = templateData?.store_products as string | undefined;
 
     // ── 주문서 블록 추출 (마커 이전 잡담 제거) ──────────────
     const markerIdx = utterance.indexOf(ORDER_FORM_MARKER);
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
     // ── Gemini 파싱 (4.5초 타임아웃 — 카카오 5초 제한 대응) ─
     let parsedOrder;
     try {
-      const parsePromise = parseOrderWithGemini(textToParse, undefined, storeFields);
+      const parsePromise = parseOrderWithGemini(textToParse, undefined, storeFields, storeProducts);
       const timeoutPromise = new Promise<null>((_, reject) =>
         setTimeout(() => reject(new Error('TIMEOUT')), 4500)
       );

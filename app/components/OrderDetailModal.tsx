@@ -171,48 +171,57 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   }, [handleImageFile]);
 
   const handleSave = async () => {
-    // 이미지 업로드 대기 (이미 백그라운드 진행 중이면 완료 대기)
-    let finalImageUrl: string | null = uploadedImageUrlRef.current;
-    if (!imagePreview) {
-      finalImageUrl = null;
-    } else if (uploadingImage && uploadPromiseRef.current) {
-      setIsSaving(true);
-      finalImageUrl = await uploadPromiseRef.current;
-      setIsSaving(false);
-      if (!finalImageUrl) {
-        showToast("사진 업로드에 실패하여 이미지 제외 정보만 저장합니다.", "warning");
-        finalImageUrl = order.options?.imageUrl || null;
+    setIsSaving(true);
+    try {
+      // 이미지 업로드 대기 (이미 백그라운드 진행 중이면 완료 대기)
+      let finalImageUrl: string | null = uploadedImageUrlRef.current;
+      if (!imagePreview) {
+        finalImageUrl = null;
+      } else if (uploadPromiseRef.current) {
+        // 최대 10초 타임아웃 추가하여 업로드 무한 대기 방지
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
+        finalImageUrl = await Promise.race([uploadPromiseRef.current, timeoutPromise]);
+        
+        if (!finalImageUrl) {
+          showToast("사진 업로드에 실패했거나 대기 시간이 초과되어 이미지 없이 저장합니다.", "warning");
+          finalImageUrl = order.options?.imageUrl || null;
+        }
       }
+
+      const pickupIso = editDate
+        ? new Date(`${editDate}T${editTime || "12:00"}:00`).toISOString()
+        : order.pickupDate;
+
+      // ── Local-First: Dexie 즉시 업데이트 → Pro: 백그라운드 sync ──
+      await updateOrderFields(order.id, {
+        customerName: editName,
+        phone: editPhone,
+        productName: editProduct,
+        pickupDate: pickupIso,
+        amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
+        status: editStatus,
+        options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
+      });
+
+      const updatedOrder: Order = {
+        ...order,
+        customerName: editName,
+        phone: editPhone,
+        productName: editProduct,
+        pickupDate: pickupIso,
+        amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
+        status: editStatus,
+        options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
+      };
+
+      if (onUpdated) onUpdated(updatedOrder);
+      onClose();
+    } catch (err: any) {
+      console.error("[OrderDetailModal] Save failed", err);
+      showToast(err.message || "주문 정보 저장 중 오류가 발생했습니다.", "error");
+    } finally {
+      setIsSaving(false);
     }
-
-    const pickupIso = editDate
-      ? new Date(`${editDate}T${editTime || "12:00"}:00`).toISOString()
-      : order.pickupDate;
-
-    // ── Local-First: Dexie 즉시 업데이트 → Pro: 백그라운드 sync ──
-    await updateOrderFields(order.id, {
-      customerName: editName,
-      phone: editPhone,
-      productName: editProduct,
-      pickupDate: pickupIso,
-      amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
-      status: editStatus,
-      options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
-    });
-
-    const updatedOrder: Order = {
-      ...order,
-      customerName: editName,
-      phone: editPhone,
-      productName: editProduct,
-      pickupDate: pickupIso,
-      amount: Number(editAmount.replace(/[^0-9]/g, "")) || 0,
-      status: editStatus,
-      options: { ...order.options, memo: editMemo, imageUrl: finalImageUrl ?? undefined },
-    };
-
-    if (onUpdated) onUpdated(updatedOrder);
-    onClose();
   };
 
   return (

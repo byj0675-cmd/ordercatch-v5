@@ -299,6 +299,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
 
     const promise = (async () => {
       try {
+        const storeProducts = localStorage.getItem(`ordercatch_store_products_${storeId}`) || "";
         const res = await fetch("/api/orders/manual-parse", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -306,7 +307,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
             text: targetText, 
             storeId,
             enabledFields: getEnabledFieldsArray(),
-            storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name)
+            storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name),
+            storeProducts
           }),
         });
         if (!res.ok) return null;
@@ -397,6 +399,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
         }
       }
 
+      const storeProducts = localStorage.getItem(`ordercatch_store_products_${storeId}`) || "";
       const res = await fetch("/api/orders/manual-parse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -404,7 +407,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           text, 
           storeId,
           enabledFields: getEnabledFieldsArray(),
-          storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name)
+          storeFields: customFieldsConfig.filter(f => f.enabled).map(f => f.name),
+          storeProducts
         }),
       });
       
@@ -528,11 +532,11 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       if (!imagePreview) {
         finalImageUrl = null;
       } else if (uploadPromiseRef.current) {
-        // 아직 업로드 진행 중이거나 완료되었지만 ref에서 가져와야 하는 경우 모두 대기
-        finalImageUrl = await uploadPromiseRef.current;
+        // 최대 10초 타임아웃 추가하여 업로드 무한 대기 방지
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 10000));
+        finalImageUrl = await Promise.race([uploadPromiseRef.current, timeoutPromise]);
         if (!finalImageUrl) {
-          showToast("이미지 업로드에 실패했습니다. 이미지 없이 저장합니다.", "warning");
-          // 이미지 실패 시에도 주문 자체는 저장 진행
+          showToast("이미지 업로드에 실패했거나 대기 시간이 초과되어 이미지 없이 저장합니다.", "warning");
         }
       } else {
         // promise가 없지만 이미 업로드된 URL이 있는 경우

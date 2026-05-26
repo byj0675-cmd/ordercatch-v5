@@ -27,6 +27,8 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const [detectedFields, setDetectedFields] = useState<string[]>([]);
   const [isDetecting, setIsDetecting] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [storeProductsList, setStoreProductsList] = useState<string[]>([]);
+  const [newProductText, setNewProductText] = useState("");
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(storeInfo?.name || profile?.store_name || store.name);
@@ -99,12 +101,23 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
         try {
           const { data, error } = await supabase
             .from("store_order_templates")
-            .select("sample_text, detected_fields")
+            .select("sample_text, detected_fields, store_products")
             .eq("store_id", profile.store_id)
             .maybeSingle();
 
           if (!error && data) {
             setSampleText(data.sample_text || "");
+            
+            // 매장 취급 상품 설정 로드
+            if (data.store_products) {
+              const products = data.store_products.split(",").map((p: string) => p.trim()).filter(Boolean);
+              setStoreProductsList(products);
+              localStorage.setItem(`ordercatch_store_products_${profile.store_id}`, data.store_products);
+            } else {
+              setStoreProductsList([]);
+              localStorage.removeItem(`ordercatch_store_products_${profile.store_id}`);
+            }
+
             if (Array.isArray(data.detected_fields)) {
               setDetectedFields(data.detected_fields);
 
@@ -167,17 +180,35 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
     }
   };
 
+  const handleAddProduct = () => {
+    const trimmed = newProductText.trim();
+    if (!trimmed) return;
+    if (storeProductsList.includes(trimmed)) {
+      showToast("이미 등록된 상품입니다.", "warning");
+      return;
+    }
+    setStoreProductsList(prev => [...prev, trimmed]);
+    setNewProductText("");
+  };
+
+  const handleRemoveProduct = (idxToRemove: number) => {
+    setStoreProductsList(prev => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
   const handleSaveTemplate = async () => {
     if (!profile?.store_id) return;
     setIsSavingTemplate(true);
     try {
+      const storeProductsStr = storeProductsList.join(", ");
+
       // 1. Supabase 업서트
       const { error } = await supabase
         .from("store_order_templates")
         .upsert({
           store_id: profile.store_id,
           sample_text: sampleText,
-          detected_fields: detectedFields
+          detected_fields: detectedFields,
+          store_products: storeProductsStr
         }, { onConflict: "store_id" });
 
       if (error) throw error;
@@ -727,6 +758,99 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
                 매장에서 실제로 사용하는 주문서 예시(샘플)를 등록해주세요. AI가 주문서 항목들을 감지하여 자동으로 장부 양식(커스텀 필드)을 생성하고 파싱 정확도를 극대화합니다.
+              </div>
+
+              {/* 매장 취급 상품 설정 영역 */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#f8fafc", padding: 16, borderRadius: 16, border: "1px solid rgba(0,0,0,0.05)" }}>
+                <label style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 800 }}>📦 매장 판매 상품(메뉴) 관리</label>
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+                  매장에서 실제 판매 중인 품목(메뉴)명을 하나씩 입력해 추가해 주세요. AI가 주문서 텍스트 중 유사한 단어를 상품명으로 정확히 감지하는 데 도움을 줍니다.
+                </div>
+                
+                {/* 상품 추가 입력필드 */}
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <input
+                    type="text"
+                    value={newProductText}
+                    onChange={(e) => setNewProductText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddProduct();
+                      }
+                    }}
+                    placeholder="예: 백설기, 흑임자설기, 꽃케이크, 송편"
+                    style={{
+                      flex: 1,
+                      padding: "10px 14px",
+                      borderRadius: 10,
+                      border: "1px solid #cbd5e1",
+                      fontSize: 13,
+                      outline: "none",
+                      background: "#fff"
+                    }}
+                  />
+                  <button
+                    onClick={handleAddProduct}
+                    style={{
+                      padding: "10px 16px",
+                      background: "var(--accent)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: 10,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer"
+                    }}
+                  >
+                    추가
+                  </button>
+                </div>
+
+                {/* 등록된 상품 목록 배지 */}
+                {storeProductsList.length > 0 ? (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                    {storeProductsList.map((product, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          fontSize: 12,
+                          background: "#fff",
+                          border: "1px solid #e2e8f0",
+                          color: "var(--text-primary)",
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.02)"
+                        }}
+                      >
+                        {product}
+                        <button
+                          onClick={() => handleRemoveProduct(idx)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            padding: 0,
+                            cursor: "pointer",
+                            color: "#ef4444",
+                            fontSize: 11,
+                            fontWeight: 900,
+                            marginLeft: 2
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 6, textAlign: "center", padding: "8px 0" }}>
+                    등록된 상품이 없습니다. 판매하는 주요 제품명을 추가해 보세요!
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
