@@ -52,7 +52,11 @@ function PhoneMockup() {
           /* Step 0: KakaoTalk Chat (Copying) */
           <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "#bacee0", animation: "fadeIn 0.3s ease" }}>
             <div style={{ background: "#FAE100", padding: "8px 12px", display: "flex", alignItems: "center", gap: 7 }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>🍰</div>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 10, color: "#000" }}>단골 고객 카톡</div>
                 <div style={{ fontSize: 7, color: "#555" }}>주문 문의</div>
@@ -68,8 +72,12 @@ function PhoneMockup() {
                   010-1234-5678
                   
                   {/* Floating Action Badge */}
-                  <div style={{ position: "absolute", bottom: -28, right: 0, background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 900, padding: "4px 8px", borderRadius: 8, boxShadow: "0 4px 12px rgba(255,127,50,0.4)", animation: "pulse 1.2s infinite", whiteSpace: "nowrap", zIndex: 5 }}>
-                    주문 메시지 복사 📋
+                  <div style={{ position: "absolute", bottom: -28, right: 0, background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 900, padding: "4px 8px", borderRadius: 8, boxShadow: "0 4px 12px rgba(255,127,50,0.4)", animation: "pulse 1.2s infinite", whiteSpace: "nowrap", zIndex: 5, display: "flex", alignItems: "center", gap: 3 }}>
+                    주문 메시지 복사
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
                   </div>
                 </div>
               </div>
@@ -92,7 +100,13 @@ function PhoneMockup() {
             </div>
 
             <div style={{ flex: 1, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ fontSize: 8, fontWeight: 800, color: "#666" }}>📋 복사한 메시지 붙여넣기</div>
+              <div style={{ fontSize: 8, fontWeight: 800, color: "#666", display: "flex", alignItems: "center", gap: 3 }}>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                  <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                </svg>
+                복사한 메시지 붙여넣기
+              </div>
               <div style={{ flex: 1, background: "#fff", border: "1.5px solid #FF7F32", borderRadius: 12, padding: 8, display: "flex", flexDirection: "column", position: "relative" }}>
                 <div style={{ fontSize: 9, lineHeight: 1.4, color: "#2D2D2D", whiteSpace: "pre-line", flex: 1, borderRight: "2px solid #FF7F32", animation: "blink 0.8s infinite" }}>
                   사장님~ 딸기 케이크 2호{"\n"}
@@ -101,8 +115,11 @@ function PhoneMockup() {
                 </div>
                 
                 {/* Simulated Clickable Button */}
-                <div style={{ background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 800, padding: "5px 0", borderRadius: 6, textAlign: "center", marginTop: 4 }}>
-                  자동 등록하기 ⚡
+                <div style={{ background: "#FF7F32", color: "#fff", fontSize: 8, fontWeight: 800, padding: "5px 0", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", gap: 3, marginTop: 4 }}>
+                  자동 등록하기
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
                 </div>
               </div>
             </div>
@@ -119,7 +136,11 @@ function PhoneMockup() {
 
             <div style={{ flex: 1, padding: 12, display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
               <div style={{ textAlign: "center", margin: "4px 0" }}>
-                <div style={{ fontSize: 20, marginBottom: 4 }}>🎉</div>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 4px" }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7C59" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                </div>
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#4A7C59" }}>자동 등록 완료!</div>
                 <div style={{ fontSize: 7, color: "#888", marginTop: 2 }}>달력과 장부에 깔끔하게 기록되었습니다.</div>
               </div>
@@ -127,16 +148,37 @@ function PhoneMockup() {
               {/* Parsed Result Card */}
               <div style={{ background: "#fff", borderRadius: 12, border: "1px solid rgba(74,124,89,0.15)", padding: 8, boxShadow: "0 6px 16px rgba(74,124,89,0.06)" }}>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3 }}>
-                    <span style={{ color: "#888" }}>📅 픽업일시</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3, alignItems: "center" }}>
+                    <span style={{ color: "#888", display: "flex", alignItems: "center", gap: 2.5 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                      픽업일시
+                    </span>
                     <span style={{ fontWeight: 700, color: "#2D2D2D" }}>4월 15일 15:00</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3 }}>
-                    <span style={{ color: "#888" }}>👤 고객정보</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #f5f5f5", paddingBottom: 3, alignItems: "center" }}>
+                    <span style={{ color: "#888", display: "flex", alignItems: "center", gap: 2.5 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                      고객정보
+                    </span>
                     <span style={{ fontWeight: 700, color: "#2D2D2D" }}>김수연 (5678)</span>
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ color: "#888" }}>🍰 주문상품</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#888", display: "flex", alignItems: "center", gap: 2.5 }}>
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <path d="M16 10a4 4 0 0 1-8 0" />
+                      </svg>
+                      주문상품
+                    </span>
                     <span style={{ fontWeight: 700, color: "#FF7F32" }}>딸기 케이크 2호</span>
                   </div>
                 </div>
@@ -216,7 +258,6 @@ function LandingContent() {
               </p>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "inherit" }}>
                 <button onClick={login} className="land-cta">
-                  <span>🎉</span>
                   평생 50% 할인 혜택받고 시작하기
                 </button>
               </div>
@@ -240,13 +281,50 @@ function LandingContent() {
           <R delay={80}>
             <div className="land-bento land-bento-2" style={{ margin: "40px auto 0", maxWidth: 760 }}>
               {[
-                { icon: "📱", situation: "손님 카톡이 길면", pain: "뭐가 중요한지 다시 읽어야 해요" },
-                { icon: "⏰", situation: "바쁠 때 카톡 오면", pain: "나중에 보려다 그냥 묻혀버려요" },
-                { icon: "✏️", situation: "날짜 변경 연락 오면", pain: "엑셀 열어서 찾고, 고치고, 저장하고..." },
-                { icon: "😰", situation: "픽업 전날 밤에", pain: "내일 몇 건인지 불안해서 한 번 더 확인" },
+                { 
+                  icon: (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
+                  ),
+                  situation: "손님 카톡이 길면", 
+                  pain: "뭐가 중요한지 다시 읽어야 해요" 
+                },
+                { 
+                  icon: (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  ),
+                  situation: "바쁠 때 카톡 오면", 
+                  pain: "나중에 보려다 그냥 묻혀버려요" 
+                },
+                { 
+                  icon: (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                  ),
+                  situation: "날짜 변경 연락 오면", 
+                  pain: "엑셀 열어서 찾고, 고치고, 저장하고..." 
+                },
+                { 
+                  icon: (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                  ),
+                  situation: "픽업 전날 밤에", 
+                  pain: "내일 몇 건인지 불안해서 한 번 더 확인" 
+                },
               ].map((item, i) => (
                 <div key={i} className="land-card">
-                  <div style={{ fontSize: 24, marginBottom: 12 }}>{item.icon}</div>
+                  <div style={{ marginBottom: 12 }}>{item.icon}</div>
                   <div style={{ fontSize: 12, color: "#FF7F32", fontWeight: 700, marginBottom: 6 }}>{item.situation}</div>
                   <div style={{ fontSize: 15, fontWeight: 800, color: "#2D2D2D" }}>{item.pain}</div>
                 </div>
@@ -304,13 +382,41 @@ function LandingContent() {
           </R>
           <div className="land-bento" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
             {[
-              { icon: "⚡", title: "붙여넣기 한 번으로 자동 등록", desc: "카톡·인스타 주문 메시지를 넣으면 AI가 즉시 분석해 장부에 올립니다." },
-              { icon: "📅", title: "날짜별 정렬 장부", desc: "오늘, 내일 픽업이 몇 건인지 한눈에 확인. 놓치는 주문이 없어집니다." },
-              { icon: "✏️", title: "변경도 메시지 그대로", desc: "수정 카톡을 그대로 넣으면 알아서 내용을 찾아 수정해줍니다." },
+              { 
+                icon: (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                  </svg>
+                ), 
+                title: "붙여넣기 한 번으로 자동 등록", 
+                desc: "카톡·인스타 주문 메시지를 넣으면 AI가 즉시 분석해 장부에 올립니다." 
+              },
+              { 
+                icon: (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                ), 
+                title: "날짜별 정렬 장부", 
+                desc: "오늘, 내일 픽업이 몇 건인지 한눈에 확인. 놓치는 주문이 없어집니다." 
+              },
+              { 
+                icon: (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                ), 
+                title: "변경도 메시지 그대로", 
+                desc: "수정 카톡을 그대로 넣으면 알아서 내용을 찾아 수정해줍니다." 
+              },
             ].map((f, i) => (
               <R key={i} delay={i * 60}>
                 <div className="land-card" style={{ height: "100%" }}>
-                  <div className="land-card-icon">{f.icon}</div>
+                  <div className="land-card-icon" style={{ display: "flex", alignItems: "center" }}>{f.icon}</div>
                   <div className="land-card-title">{f.title}</div>
                   <div className="land-card-desc">{f.desc}</div>
                 </div>
@@ -336,7 +442,14 @@ function LandingContent() {
                 </div>
                 <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px dashed rgba(150,100,40,0.2)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "linear-gradient(135deg,#fde68a,#f59e0b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>👨‍👧‍👦</div>
+                    <div style={{ width: 42, height: 42, borderRadius: "50%", background: "linear-gradient(135deg,#fde68a,#f59e0b)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b45309" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                    </div>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 14, color: "#3d2b1a" }}>오더캐치 개발자</div>
                       <div style={{ fontSize: 12, color: "#9C6B2E" }}>세 아이 아빠, 전 떡집 운영</div>
@@ -367,7 +480,12 @@ function LandingContent() {
                 <div className="land-review">
                   <div className="land-review-text">"{r.text}"</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,127,50,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
+                    <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,127,50,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FF7F32" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 13 }}>{r.name} 사장님</div>
                       <div style={{ fontSize: 11, color: "#888" }}>{r.job}</div>
@@ -395,7 +513,14 @@ function LandingContent() {
             ].map((plan, i) => (
               <R key={i} delay={i * 80}>
                 <div className={`land-price-card ${plan.featured ? "featured" : ""}`}>
-                  {plan.featured && <div className="land-price-badge">🔥 선착순 100명 한정</div>}
+                  {plan.featured && (
+                    <div className="land-price-badge" style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                      </svg>
+                      선착순 100명 한정
+                    </div>
+                  )}
                   <div style={{ fontSize: 13, fontWeight: 700, color: plan.featured ? "#FF7F32" : "#888", marginBottom: 8 }}>{plan.name}</div>
                   <div style={{ fontSize: 28, fontWeight: 900, marginBottom: 4 }}>{plan.price} <span style={{ fontSize: 13, fontWeight: 400, color: "#888" }}>{plan.period}</span></div>
                   <div style={{ fontSize: 13, color: "#777", marginBottom: 20, lineHeight: 1.5 }}>{plan.desc}</div>
@@ -417,6 +542,9 @@ function LandingContent() {
           </div>
         </div>
       </section>
+
+      {/* FAQ Section */}
+      <FAQSection />
 
       {/* Footer CTA */}
       <div className="land-footer-cta">
@@ -460,6 +588,83 @@ function LandingContent() {
         .animate-fadeup { animation: fadeUp 0.6s ease both; }
       `}</style>
     </div>
+  );
+}
+
+function FAQItem({ question, answer }: { question: string; answer: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  return (
+    <div style={{ borderBottom: "1px solid rgba(45, 45, 45, 0.08)", padding: "18px 0" }}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", padding: "8px 0", cursor: "pointer", textAlign: "left" }}
+      >
+        <span style={{ fontSize: "16px", fontWeight: 800, color: "#2D2D2D", letterSpacing: "-0.02em" }}>
+          {question}
+        </span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#666"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.25s ease", flexShrink: 0 }}
+        >
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </button>
+      <div style={{ maxHeight: isOpen ? "200px" : "0px", overflow: "hidden", transition: "max-height 0.3s ease, margin-top 0.3s ease", marginTop: isOpen ? "10px" : "0px" }}>
+        <p style={{ fontSize: "14px", color: "#666", lineHeight: 1.6 }}>
+          {answer}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function FAQSection() {
+  const faqs = [
+    {
+      question: "Q. 개인정보나 주문 데이터는 안전하게 보관되나요?",
+      answer: "네, 오더캐치는 로컬 퍼스트(Local-first) 기술을 적용하여 사장님의 브라우저/기기에 주문 데이터를 우선 암호화하여 저장하며, 안전한 Supabase 클라우드 데이터베이스에 실시간으로 이중 백업됩니다. 유출이나 분실 우려 없이 안심하고 관리하실 수 있습니다."
+    },
+    {
+      question: "Q. 카카오톡 메시지를 복사할 때 특정 형식이 정해져 있나요?",
+      answer: "정해진 형식이 전혀 없습니다! 손님이 보낸 카카오톡 메시지나 인스타그램 DM을 드래그해서 그대로 복사(Ctrl+C)한 뒤 복붙창에 붙여넣기만 하시면, 오더캐치 AI가 문맥을 파악해 이름, 연락처, 픽업 날짜, 상품명을 지능적으로 알아서 분류해 줍니다."
+    },
+    {
+      question: "Q. 무료 사용 한도(월 20건)를 초과하면 자동으로 결제가 되나요?",
+      answer: "아닙니다! 오더캐치는 사전 신용카드 등록을 요구하지 않으므로, 무료 건수가 초과하더라도 요금이 자동으로 결제될 걱정이 전혀 없습니다. 월 20건을 초과하여 추가 등록을 원하실 때만 결제 신청을 통해 직접 프로 요금제로 업그레이드하시면 됩니다."
+    },
+    {
+      question: "Q. 여러 기기(스마트폰, PC, 태블릿)에서 동시에 사용 가능한가요?",
+      answer: "네, 동일한 카카오 계정으로 로그인하시면 스마트폰, PC, 태블릿 등 기기 제약 없이 모든 주문 데이터가 실시간으로 완벽하게 동기화되어 언제 어디서나 편리하게 장부를 확인하실 수 있습니다."
+    },
+    {
+      question: "Q. 결제 신청을 하면 어떻게 진행되나요?",
+      answer: "PRO 요금제 '결제 신청'을 하시면, 사장님의 휴대폰으로 '결제선생' 카카오톡 알림톡 결제 요청이 발송됩니다. 알림톡을 통해 카드 결제, 카카오페이 등으로 간편하게 수납이 완료되면, 관리자가 확인 후 즉시 무제한 이용 등급(PRO)으로 활성화해 드립니다."
+    }
+  ];
+
+  return (
+    <section className="land-section" style={{ background: "#fff", borderTop: "1px solid rgba(45,45,45,0.07)", paddingBottom: "100px" }}>
+      <div className="land-section-inner" style={{ maxWidth: "720px", margin: "0 auto" }}>
+        <R>
+          <div className="land-section-label" style={{ textAlign: "center" }}>FAQ</div>
+          <h2 className="land-section-title" style={{ textAlign: "center", marginBottom: "40px" }}>자주 묻는 질문</h2>
+        </R>
+        <R delay={80}>
+          <div style={{ background: "rgba(255, 127, 50, 0.02)", border: "1px solid rgba(255, 127, 50, 0.08)", borderRadius: "24px", padding: "24px 32px", boxShadow: "0 10px 30px rgba(0,0,0,0.02)" }}>
+            {faqs.map((faq, idx) => (
+              <FAQItem key={idx} question={faq.question} answer={faq.answer} />
+            ))}
+          </div>
+        </R>
+      </div>
+    </section>
   );
 }
 

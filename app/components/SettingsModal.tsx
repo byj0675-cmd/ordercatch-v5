@@ -19,7 +19,7 @@ interface TeamMember {
 }
 
 export default function SettingsModal({ store, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<"general" | "fields" | "template" | "team" | "subscription" | "webhook" | "link">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "fields" | "template" | "team" | "subscription" | "webhook" | "link" | "feedback">("general");
   const { profile, storeInfo, isMaster, updateStoreProfile } = useStoreProvider();
   
   // 템플릿 설정 상태
@@ -29,6 +29,8 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [storeProductsList, setStoreProductsList] = useState<string[]>([]);
   const [newProductText, setNewProductText] = useState("");
+  const [feedbackContent, setFeedbackContent] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(storeInfo?.name || profile?.store_name || store.name);
@@ -193,6 +195,36 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
 
   const handleRemoveProduct = (idxToRemove: number) => {
     setStoreProductsList(prev => prev.filter((_, idx) => idx !== idxToRemove));
+  };
+
+  const handleSubmitFeedback = async () => {
+    const trimmed = feedbackContent.trim();
+    if (!trimmed) return;
+    setIsSubmittingFeedback(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: trimmed,
+          userEmail: profile?.email || "",
+          storeName: storeInfo?.name || profile?.store_name || store.name || "",
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "제보 전송 실패");
+      }
+
+      showToast("소중한 의견이 전송되었습니다. 감사드립니다!", "success");
+      setFeedbackContent("");
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.message || "제보 전송에 실패했습니다. 다시 시도해 주세요.", "error");
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
   };
 
   const handleSaveTemplate = async () => {
@@ -376,6 +408,7 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
     { id: "subscription", label: "구독 관리" },
     { id: "webhook", label: "웹훅 연동", isBeta: true },
     { id: "link", label: "주문 링크", isBeta: true },
+    { id: "feedback", label: "개선사항 제보" },
   ] as const;
 
   return (
@@ -762,7 +795,14 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
 
               {/* 매장 취급 상품 설정 영역 */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, background: "#f8fafc", padding: 16, borderRadius: 16, border: "1px solid rgba(0,0,0,0.05)" }}>
-                <label style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 800 }}>📦 매장 판매 상품(메뉴) 관리</label>
+                <label style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 800, display: "flex", alignItems: "center", gap: 6 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--accent)" }}>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                    <line x1="12" y1="22.08" x2="12" y2="12" />
+                  </svg>
+                  매장 판매 상품(메뉴) 관리
+                </label>
                 <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
                   매장에서 실제 판매 중인 품목(메뉴)명을 하나씩 입력해 추가해 주세요. AI가 주문서 텍스트 중 유사한 단어를 상품명으로 정확히 감지하는 데 도움을 줍니다.
                 </div>
@@ -891,7 +931,16 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                     transition: "all 0.15s"
                   }}
                 >
-                  {isDetecting ? "항목 분석 중..." : "✨ AI 항목 자동 감지"}
+                  <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    {!isDetecting && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                        <polyline points="2 17 12 22 22 17" />
+                        <polyline points="2 12 12 17 22 12" />
+                      </svg>
+                    )}
+                    {isDetecting ? "항목 분석 중..." : "AI 항목 자동 감지"}
+                  </span>
                 </button>
               </div>
 
@@ -1152,7 +1201,10 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)",
                   fontSize: 22, marginBottom: 12
                 }}>
-                  ⚙️
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
                 </div>
                 <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
                   카카오 웹훅 연동 준비 중
@@ -1209,7 +1261,10 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)",
                   fontSize: 22, marginBottom: 12
                 }}>
-                  🔗
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                  </svg>
                 </div>
                 <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
                   주문서 직접 제출 링크 준비 중
@@ -1218,6 +1273,58 @@ export default function SettingsModal({ store, onClose }: SettingsModalProps) {
                   고객용 비회원 주문 접수 페이지 및 링크 연동 기능을 더욱 안전하고 완성도 높게 개발 중입니다. 조금만 기다려주세요!
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ─── 개선사항 제보 탭 ─── */}
+          {activeTab === "feedback" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+                오더캐치를 이용해 주셔서 감사합니다. 서비스 이용 시 불편한 점이나 제안하고 싶으신 개선사항을 자유롭게 적어주시면 신속하게 검토하여 텔레그램을 통해 사장님께 직접 공유해 드립니다.
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, color: "var(--text-tertiary)", fontWeight: 700 }}>제보 내용</label>
+                <textarea
+                  value={feedbackContent}
+                  onChange={(e) => setFeedbackContent(e.target.value)}
+                  placeholder="예시: 모바일에서 저장 버튼 터치 반응이 더 빨랐으면 좋겠어요. / 고객 결제용 링크 디자인을 커스텀할 수 있으면 좋겠습니다."
+                  style={{
+                    padding: "12px 14px",
+                    borderRadius: 12,
+                    border: "1px solid #cbd5e1",
+                    fontSize: 13,
+                    outline: "none",
+                    background: "#fff",
+                    minHeight: 140,
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                    fontFamily: "inherit"
+                  }}
+                />
+              </div>
+
+              <button
+                onClick={handleSubmitFeedback}
+                disabled={isSubmittingFeedback || !feedbackContent.trim()}
+                style={{
+                  marginTop: 8,
+                  padding: "12px 16px",
+                  background: "var(--accent)",
+                  borderRadius: 12,
+                  border: "none",
+                  fontSize: 13,
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor: isSubmittingFeedback || !feedbackContent.trim() ? "not-allowed" : "pointer",
+                  display: "flex",
+                  justifyContent: "center",
+                  opacity: !feedbackContent.trim() ? 0.5 : 1,
+                  transition: "all 0.2s"
+                }}
+              >
+                {isSubmittingFeedback ? "제보 전송 중..." : "제보 보내기"}
+              </button>
             </div>
           )}
 

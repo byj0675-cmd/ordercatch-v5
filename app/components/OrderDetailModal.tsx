@@ -345,8 +345,13 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                         style={{ background: "#EF4444", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)" }}
                       >삭제</button>
                     </div>
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.6))", padding: "24px 16px 12px", color: "#fff", fontSize: 12, fontWeight: 600 }}>
-                      💡 Ctrl+V를 눌러 이미지를 즉시 붙여넣을 수 있습니다.
+                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.6))", padding: "24px 16px 12px", color: "#fff", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                      </svg>
+                      <span>Ctrl+V를 눌러 이미지를 즉시 붙여넣을 수 있습니다.</span>
                     </div>
                   </div>
                 ) : (

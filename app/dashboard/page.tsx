@@ -115,7 +115,7 @@ export default function Dashboard() {
       return;
     }
     const timer = setTimeout(() => {
-      showToast("우측 상단 ⚙️설정에서 내 매장 고유 링크를 확인하세요!", "info", "✨");
+      showToast("우측 상단 설정에서 내 매장 고유 링크를 확인하세요!", "info");
     }, 500);
     return () => clearTimeout(timer);
   }, []);
@@ -140,7 +140,7 @@ export default function Dashboard() {
           .eq("id", profile.id)
           .then(({ error }) => {
             if (!error) {
-              showToast("계정 권한 및 최고 관리자 권한이 복구되었습니다.", "success", "👑");
+              showToast("계정 권한 및 최고 관리자 권한이 복구되었습니다.", "success");
               refreshStore();
             } else {
               console.error("Failed to update role & admin status:", error);
@@ -178,7 +178,7 @@ export default function Dashboard() {
           .from("order_images")
           .getPublicUrl(fileName);
         await navigator.clipboard.writeText(urlData.publicUrl);
-        showToast("이미지 업로드 완료! URL이 클립보드에 복사됐습니다. 메모에 붙여넣기 하세요.", "success", "📎");
+        showToast("이미지 업로드 완료! URL이 클립보드에 복사됐습니다. 메모에 붙여넣기 하세요.", "success");
       } catch (err: any) {
         showToast("이미지 업로드 실패: " + (err.message || "알 수 없는 오류"), "error");
       } finally {
@@ -227,7 +227,7 @@ export default function Dashboard() {
           imageUrl,
         },
       });
-      showToast("사진이 주문에 등록됐어요! 📷", "success");
+      showToast("사진이 주문에 등록되었습니다.", "success");
     } catch (err: any) {
       showToast("사진 업로드 실패: " + (err.message || "알 수 없는 오류"), "error");
     }
@@ -380,21 +380,23 @@ export default function Dashboard() {
         <header className="sticky top-0 z-40 bg-white/50 backdrop-blur-md border-b border-slate-200/30 h-16 flex items-center px-4 md:px-8">
            <div className="max-w-7xl w-full mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black">O</div>
                 <h1 className="text-xl font-black text-slate-900 tracking-tight max-w-[140px] sm:max-w-[280px] md:max-w-none truncate">
                   {activeStore.name || "OrderCatch"}
                 </h1>
                 {/* Pro 배지 */}
                 {isPro && (
                   <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[10px] font-black rounded-full">
-                    ⚡ PRO
+                    PRO
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-2">
-                 <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors">
-                    <span className="text-xl">⚙️</span>
+                 <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+                      <circle cx="12" cy="12" r="3"></circle>
+                      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
                  </button>
                  <button onClick={handleLogout} className="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
                     로그아웃
@@ -409,8 +411,14 @@ export default function Dashboard() {
             {/* 1. 오늘의 픽업/예약 */}
             <div className="glass-card p-6 flex flex-col justify-between">
               <div>
-                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full">
-                  📅 오늘 픽업/예약
+                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 w-fit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                    <line x1="16" y1="2" x2="16" y2="6" />
+                    <line x1="8" y1="2" x2="8" y2="6" />
+                    <line x1="3" y1="10" x2="21" y2="10" />
+                  </svg>
+                  오늘 픽업/예약
                 </span>
                 <h3 className="text-3xl font-black text-slate-800 mt-4 leading-none">
                   {metrics.todayCount} <span className="text-sm font-bold text-slate-500">건</span>
@@ -427,8 +435,12 @@ export default function Dashboard() {
             {/* 2. 이번 달 누적 예약 */}
             <div className="glass-card p-6 flex flex-col justify-between">
               <div>
-                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full">
-                  📈 이번 달 총 예약
+                <span className="text-[11px] font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 w-fit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                    <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+                    <polyline points="17 6 23 6 23 12" />
+                  </svg>
+                  이번 달 총 예약
                 </span>
                 <h3 className="text-3xl font-black text-slate-800 mt-4 leading-none">
                   {metrics.monthCount} <span className="text-sm font-bold text-slate-500">건</span>
@@ -451,8 +463,11 @@ export default function Dashboard() {
               className="glass-card p-6 text-left flex flex-col justify-between cursor-pointer active:scale-[0.99] transition-all"
             >
               <div>
-                <span className="text-[11px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2.5 py-1 rounded-full">
-                  ⚡ 대기 중인 신규 주문
+                <span className="text-[11px] font-bold text-rose-500 uppercase tracking-widest bg-rose-50 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 w-fit">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                  대기 중인 신규 주문
                 </span>
                 <h3 className="text-3xl font-black text-rose-600 mt-4 leading-none">
                   {metrics.pendingCount} <span className="text-sm font-bold text-rose-400">건</span>
@@ -738,6 +753,8 @@ export default function Dashboard() {
       {showPaymentModal && profile?.store_id && (
         <PaymentRequestModal
           storeId={profile.store_id}
+          initialStoreName={profile.store_name || ""}
+          initialOwnerName={profile.owner_name || ""}
           onClose={() => setShowPaymentModal(false)}
         />
       )}
@@ -1016,25 +1033,39 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
   if (filter === "all") {
     return (
       <div style={{ padding: "40px 24px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 0 }}>
-        <div style={{ fontSize: 52, marginBottom: 16 }}>📦</div>
+        <div style={{ marginBottom: 20, color: "#94a3b8" }}>
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="w-16 h-16">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+            <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+          </svg>
+        </div>
         <div style={{ fontSize: 18, fontWeight: 800, color: "var(--text-primary)", marginBottom: 6 }}>첫 주문을 받아볼까요?</div>
         <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 32, textAlign: "center", lineHeight: 1.6 }}>
           아래 3가지 방법 중 하나로 주문을 받을 수 있어요
         </div>
         <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ background: "rgba(0,122,255,0.06)", border: "1px solid rgba(0,122,255,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>✨</div>
+          <div style={{ background: "rgba(0,122,255,0.06)", border: "1px solid rgba(0,122,255,0.12)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ flexShrink: 0, marginTop: 2, color: "#007aff" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+              </svg>
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>복붙 마법사 (바로 위 버튼)</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>카카오·인스타에서 받은 주문 메시지를 그대로 붙여넣으면 AI가 자동 파싱</div>
             </div>
           </div>
-          <div style={{ background: "rgba(88,86,214,0.06)", border: "1px solid rgba(88,86,214,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>🔗</div>
+          <div style={{ background: "rgba(88,86,214,0.06)", border: "1px solid rgba(88,86,214,0.12)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ flexShrink: 0, marginTop: 2, color: "#5856d6" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>고객 주문 링크 공유</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                ⚙️ 설정 → 주문 링크 탭에서 링크를 복사해 고객에게 보내세요.<br />
+                설정 → 주문 링크 탭에서 링크를 복사해 고객에게 보내세요.<br />
                 고객이 직접 작성하면 장부에 바로 등록돼요.
               </div>
               {onOpenSettings && (
@@ -1044,12 +1075,19 @@ function EmptyState({ filter, onOpenSettings }: { filter: FilterKey; onOpenSetti
               )}
             </div>
           </div>
-          <div style={{ background: "rgba(52,199,89,0.06)", border: "1px solid rgba(52,199,89,0.15)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
-            <div style={{ fontSize: 24, flexShrink: 0, marginTop: 2 }}>🤖</div>
+          <div style={{ background: "rgba(52,199,89,0.06)", border: "1px solid rgba(52,199,89,0.12)", borderRadius: 14, padding: "16px 18px", display: "flex", gap: 14, alignItems: "flex-start" }}>
+            <div style={{ flexShrink: 0, marginTop: 2, color: "#34c759" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+            </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", marginBottom: 3 }}>카카오 자동 수신</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-                ⚙️ 설정 → 웹훅 탭에서 URL을 복사해<br />
+                설정 → 웹훅 탭에서 URL을 복사해<br />
                 카카오 오픈빌더 스킬에 등록하면 자동 파싱됩니다.
               </div>
             </div>
