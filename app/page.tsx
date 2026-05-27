@@ -1,7 +1,7 @@
 "use client";
 import "./landing.css";
 import { signInWithKakao } from "@/utils/supabase/client";
-import { showToast } from "@/app/components/Toast";
+import { showToast, ToastContainer } from "@/app/components/Toast";
 import { useEffect, useRef, useState, Suspense, Fragment } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useStoreProvider } from "./context/StoreContext";
@@ -586,6 +586,9 @@ function LandingContent() {
 
       {/* Beta Apply Modal */}
       <BetaApplyModal isOpen={isBetaModalOpen} onClose={() => setIsBetaModalOpen(false)} />
+
+      {/* Toast Notification Container */}
+      <ToastContainer />
 
       <style>{`
         @keyframes fadeUp { from { opacity:0;transform:translateY(16px); } to { opacity:1;transform:translateY(0); } }
