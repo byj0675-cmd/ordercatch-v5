@@ -520,7 +520,7 @@ function LandingContent() {
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                       </svg>
-                      선착순 20명 한정 (1기)
+                      선착순 15명 한정 (1기)
                     </div>
                   )}
                   <div style={{ fontSize: 13, fontWeight: 700, color: plan.featured ? "#FF7F32" : "#888", marginBottom: 8 }}>{plan.name}</div>
@@ -558,7 +558,7 @@ function LandingContent() {
             <button onClick={() => setIsBetaModalOpen(true)} className="land-cta" style={{ fontSize: 16, padding: "16px 32px" }}>
               평생 가격 동결받고 1기 사전 신청하기
             </button>
-            <p style={{ fontSize: 12, color: "#4b5563", marginTop: 14 }}>선착순 20명 한정 모집 중 · 첫 달 무료 체험</p>
+            <p style={{ fontSize: 12, color: "#4b5563", marginTop: 14 }}>선착순 15명 한정 모집 중 · 첫 달 무료 체험</p>
           </div>
         </R>
       </div>
