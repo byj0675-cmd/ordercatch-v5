@@ -154,7 +154,7 @@ export default function BetaApplyModal({ isOpen, onClose }: BetaApplyModalProps)
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
             </svg>
-            선착순 15명 한정 혜택
+            선착순 20명 한정 혜택
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1a1a1a", letterSpacing: "-0.03em" }}>1기 사전 경험단 신청</h2>
           <p style={{ fontSize: 13, color: "#666", marginTop: 6, lineHeight: 1.5 }}>
