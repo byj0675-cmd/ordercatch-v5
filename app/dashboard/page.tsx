@@ -750,6 +750,7 @@ export default function Dashboard() {
           used={usageLimitInfo.used}
           limit={usageLimitInfo.limit}
           onClose={() => setUsageLimitInfo(null)}
+          onUpgrade={() => setShowPaymentModal(true)}
         />
       )}
 
@@ -813,7 +814,7 @@ function UsageBanner({ storeId, onUpgrade }: { storeId: string; onUpgrade: () =>
           </span>
           {isNearLimit && (
             <button onClick={onUpgrade} className="text-xs font-black px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-              Pro 버전으로 무제한 사용하기
+              1기 무료 Pro 신청하기
             </button>
           )}
         </div>

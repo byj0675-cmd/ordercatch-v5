@@ -6,11 +6,10 @@ interface UsageLimitModalProps {
   onClose: () => void;
   used: number;
   limit: number;
+  onUpgrade: () => void;
 }
 
-export default function UsageLimitModal({ onClose, used, limit }: UsageLimitModalProps) {
-  const router = useRouter();
-
+export default function UsageLimitModal({ onClose, used, limit, onUpgrade }: UsageLimitModalProps) {
   return (
     <div
       className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
@@ -39,20 +38,20 @@ export default function UsageLimitModal({ onClose, used, limit }: UsageLimitModa
         </div>
 
         <p className="text-xs font-bold text-slate-400 text-center leading-relaxed mb-6">
-          Pro 플랜으로 업그레이드하면<br />
-          <strong className="text-slate-600">무제한 주문 등록</strong>과 함께<br />
-          클라우드 자동 백업이 활성화됩니다.
+          1기 사전체험단 혜택으로 신청 즉시<br />
+          <strong className="text-slate-600">1개월 무료 PRO(무제한) 권한</strong>을<br />
+          승인해 드리고 있습니다.
         </p>
 
         {/* CTA */}
         <button
           onClick={() => {
             onClose();
-            router.push("/pricing");
+            onUpgrade();
           }}
           className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all mb-3"
         >
-          🚀 Pro로 업그레이드
+          🚀 1기 무료체험 PRO 신청
         </button>
         <button
           onClick={onClose}
