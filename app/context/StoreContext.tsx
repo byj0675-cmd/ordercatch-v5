@@ -390,12 +390,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           Math.random().toString(36).slice(2, 6);
 
       // ─── 1기 사전체험단 선착순 15명 자동 PRO 활성화 체크 ───
+      const PROMO_END_DATE = new Date("2026-06-30T00:00:00+09:00");
+      const isPromoActive = new Date() < PROMO_END_DATE;
+
       const { count: proCount, error: countError } = await supabase
         .from("stores")
         .select("id", { count: "exact", head: true })
         .eq("subscription_status", "pro");
 
-      const shouldAutoPro = !countError && (proCount || 0) < 15;
+      const shouldAutoPro = isPromoActive && !countError && (proCount || 0) < 15;
       const subStatus = shouldAutoPro ? "pro" : "free";
 
       const now = new Date();
@@ -406,7 +409,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let isLifetimeDiscount = false;
       const cleanPhoneInput = data.phone ? data.phone.replace(/[^0-9]/g, "") : "";
 
-      if (cleanPhoneInput) {
+      if (isPromoActive && cleanPhoneInput) {
         const { data: matchedApp } = await supabase
           .from("beta_applications")
           .select("id, is_lifetime_discount")

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Dexie from "dexie";
+import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   STATUS_CONFIG,
@@ -72,6 +73,7 @@ export default function Dashboard() {
   const [usageLimitInfo, setUsageLimitInfo] = useState<{ used: number; limit: number } | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const {
     profile, storeInfo, loading, isMaster, isPro,
@@ -403,6 +405,9 @@ export default function Dashboard() {
               </div>
 
               <div className="flex items-center gap-2">
+                 <button onClick={() => setShowHelp(true)} className="px-3 py-2 text-xs font-bold text-slate-500 hover:bg-slate-50 rounded-xl transition-colors flex items-center gap-1.5" title="도움말 보기">
+                    <span className="text-sm">💡</span> 도움말
+                 </button>
                  <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:bg-slate-50 rounded-xl transition-colors flex items-center justify-center">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                       <circle cx="12" cy="12" r="3"></circle>
@@ -736,6 +741,10 @@ export default function Dashboard() {
         </div>
       )}
 
+      {showHelp && (
+        <HelpDrawer onClose={() => setShowHelp(false)} />
+      )}
+
       {showOnboarding && (
         <OnboardingModal
           onClose={() => setShowOnboarding(false)}
@@ -814,7 +823,7 @@ function UsageBanner({ storeId, onUpgrade }: { storeId: string; onUpgrade: () =>
           </span>
           {isNearLimit && (
             <button onClick={onUpgrade} className="text-xs font-black px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-              1기 무료 Pro 신청하기
+              {new Date() < new Date("2026-06-30T00:00:00+09:00") ? "1기 무료 Pro 신청하기" : "PRO 요금제 신청하기"}
             </button>
           )}
         </div>
@@ -1202,6 +1211,92 @@ function PrintSection({ dateLabel, orders, totalRevenue, storeName }: {
         <div style={{ marginTop: 60, borderTop: "1px solid #000", paddingTop: 16, display: "flex", justifyContent: "space-between", fontSize: 12, color: "#888" }}>
           <span>{storeName}</span>
           <span>주문 확인용 내부 문서</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 도움말 드로어 ─────────────────────────────────────────────────
+function HelpDrawer({ onClose }: { onClose: () => void }) {
+  const PROMO_END_DATE = new Date("2026-06-30T00:00:00+09:00");
+  const isPromoActive = new Date() < PROMO_END_DATE;
+
+  return (
+    <div className="fixed inset-0 z-[150] flex justify-end print:hidden">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm" onClick={onClose} />
+      
+      {/* Panel */}
+      <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col z-10 drawer-desktop md:drawer-desktop drawer-mobile max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:h-[85vh] max-md:rounded-t-[32px] overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">💡</span>
+            <h3 className="text-lg font-black text-slate-800 tracking-tight">도움말 및 사용 가이드</h3>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold flex items-center justify-center transition-colors">
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 no-scrollbar">
+          
+          {/* Quick Start Card */}
+          <div className="bg-indigo-50/30 border border-indigo-100/50 rounded-2xl p-5">
+            <h4 className="font-extrabold text-indigo-900 text-sm mb-1.5">복붙 마법사 (초고속 주문 등록)</h4>
+            <p className="text-xs text-indigo-700 leading-relaxed font-semibold">
+              카카오톡이나 인스타에서 받은 주문 메시지를 통째로 복사한 뒤, 대시보드 화면 아무 데서나 <kbd className="bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm text-[10px] font-bold">Ctrl + V</kbd>를 누르거나 상단 <strong>[📝 복붙 마법사 열기]</strong>를 통해 입력하면 AI가 자동으로 날짜, 이름, 상품명을 파싱하여 장부에 입력합니다.
+            </p>
+          </div>
+
+          {/* Guide Items */}
+          <div className="space-y-5">
+            <div>
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">1. 고객에게 주문서 링크 공유</span>
+              <p className="text-xs text-slate-600 leading-relaxed font-bold">
+                우측 상단 <strong>⚙️ 설정 ➔ [주문 링크]</strong> 탭에서 사장님의 고유 주문 링크를 복사하여 인스타그램 프로필이나 카카오톡 공지에 올려두세요. 고객이 직접 입력하면 대시보드에 실시간 자동 등록됩니다.
+              </p>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">2. 일일 주문서 인쇄 (Daily Sheet)</span>
+              <p className="text-xs text-slate-600 leading-relaxed font-bold">
+                당일 작업 지시용 주문서를 깔끔한 A4 규격 양식으로 출력할 수 있습니다. 캘린더에서 인쇄를 원하는 날짜를 클릭한 후, 우측 리스트 상단의 <strong>[🖨️ 인쇄 아이콘]</strong>을 누르면 인쇄 미리보기가 열립니다.
+              </p>
+            </div>
+
+            <div>
+              <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest block mb-2">3. 카카오 웹훅 수신 (자동 연동)</span>
+              <p className="text-xs text-slate-600 leading-relaxed font-bold">
+                카카오 오픈채팅방이나 채널로 직접 들어오는 주문 메시지를 사장님이 복사할 필요 없이 오더캐시 서버가 감지해 즉시 자동 기입합니다. <strong>⚙️ 설정 ➔ [웹훅 설정]</strong> 탭에서 연동이 가능합니다.
+              </p>
+            </div>
+          </div>
+
+          {/* Promo Section (Conditional) */}
+          {isPromoActive && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-5">
+              <h4 className="font-extrabold text-amber-900 text-sm mb-1.5">🎁 1기 사전체험단 혜택</h4>
+              <ul className="text-xs text-slate-600 space-y-1 leading-relaxed font-bold">
+                <li>• 신규 매장 생성 시 <strong>1개월 무료 PRO</strong> 자동 활성화</li>
+                <li>• 신청 연락처 매칭 시 <strong>평생 50% 요금 동결</strong> 적용 (베이직 2,450원 / 프리미엄 4,950원)</li>
+              </ul>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-100 bg-slate-50">
+          <Link
+            href="/manual"
+            target="_blank"
+            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl flex items-center justify-center text-sm transition-colors shadow-lg shadow-indigo-100/50"
+            onClick={onClose}
+          >
+            📖 전체 설명서 보기 (인쇄 및 PDF 다운로드)
+          </Link>
         </div>
       </div>
     </div>
