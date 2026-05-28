@@ -156,3 +156,119 @@ export async function rejectPayment(requestId: string) {
   revalidatePath("/admin");
   return { success: true };
 }
+
+export async function updateInterviewStatus(applicationId: string, status: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  // Check super admin status
+  const isLocalDev = process.env.NODE_ENV === "development";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin && !isLocalDev) {
+    throw new Error("Forbidden: Super Admin only");
+  }
+
+  const { error } = await supabase
+    .from("beta_applications")
+    .update({ interview_status: status })
+    .eq("id", applicationId);
+
+  if (error) {
+    console.error("Failed to update interview status:", error);
+    throw new Error("Failed to update status");
+  }
+
+  revalidatePath("/admin");
+  return { success: true };
+}
+
+export async function toggleLifetimeDiscount(applicationId: string, enabled: boolean) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  // Check super admin status
+  const isLocalDev = process.env.NODE_ENV === "development";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_super_admin")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile?.is_super_admin && !isLocalDev) {
+    throw new Error("Forbidden: Super Admin only");
+  }
+
+  // 1. Update beta_applications
+  const { data: application, error: appError } = await supabase
+    .from("beta_applications")
+    .update({ is_lifetime_discount: enabled })
+    .eq("id", applicationId)
+    .select("phone, store_name")
+    .single();
+
+  if (appError || !application) {
+    console.error("Failed to update beta application discount status:", appError);
+    throw new Error("Failed to update discount status");
+  }
+
+  // 2. Sync to stores table if a matching store exists
+  const cleanPhone = application.phone ? application.phone.replace(/[^0-9]/g, "") : "";
+  
+  let matchingProfiles: any[] = [];
+  if (application.phone) {
+    const { data: profilesByPhone } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("phone", application.phone);
+    if (profilesByPhone) matchingProfiles = profilesByPhone;
+  }
+  
+  if (matchingProfiles.length === 0 && cleanPhone) {
+    const { data: profilesByCleanPhone } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("phone", cleanPhone);
+    if (profilesByCleanPhone) matchingProfiles = profilesByCleanPhone;
+  }
+
+  if (matchingProfiles.length === 0 && application.store_name) {
+    const { data: profilesByStore } = await supabase
+      .from("profiles")
+      .select("store_id")
+      .eq("store_name", application.store_name);
+    if (profilesByStore) matchingProfiles = profilesByStore;
+  }
+
+  if (matchingProfiles.length > 0) {
+    const storeIds = matchingProfiles.map(p => p.store_id).filter(Boolean);
+    if (storeIds.length > 0) {
+      await supabase
+        .from("stores")
+        .update({ is_lifetime_discount: enabled })
+        .in("id", storeIds);
+    }
+  }
+
+  revalidatePath("/admin");
+  return { success: true };
+}
+

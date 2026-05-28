@@ -76,7 +76,7 @@ interface StoreContextProps {
   updateOrderFields: (orderId: string, fields: Partial<LocalOrder>) => Promise<void>;
   // 매장 관리
   updateStoreProfile: (data: { store_name?: string; category?: string; owner_name?: string }) => Promise<boolean>;
-  createStore: (data: { store_name: string; category: string; owner_name: string; store_slug?: string }) => Promise<boolean>;
+  createStore: (data: { store_name: string; category: string; owner_name: string; store_slug?: string; phone?: string }) => Promise<boolean>;
   joinStoreByCode: (code: string) => Promise<{ success: boolean; error?: string }>;
   refreshStore: () => Promise<void>;
   loginAsMockUser: () => void;
@@ -330,7 +330,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // ── 매장 관리 ─────────────────────────────────────────────
 
-  const createStore = async (data: { store_name: string; category: string; owner_name: string; store_slug?: string }) => {
+  const createStore = async (data: { store_name: string; category: string; owner_name: string; store_slug?: string; phone?: string }) => {
     try {
       const isMock = typeof document !== "undefined" && document.cookie.includes("ordercatch-mock-user=true");
 
@@ -389,14 +389,70 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           "-" +
           Math.random().toString(36).slice(2, 6);
 
+      // ─── 1기 사전체험단 선착순 15명 자동 PRO 활성화 체크 ───
+      const { count: proCount, error: countError } = await supabase
+        .from("stores")
+        .select("id", { count: "exact", head: true })
+        .eq("subscription_status", "pro");
+
+      const shouldAutoPro = !countError && (proCount || 0) < 15;
+      const subStatus = shouldAutoPro ? "pro" : "free";
+
+      const now = new Date();
+      const endDate = new Date(now);
+      endDate.setDate(endDate.getDate() + 30); // 30일 무료
+
+      // ─── 사전 신청자 매칭 체크 (평생 50% 할인 여부 결정) ───
+      let isLifetimeDiscount = false;
+      const cleanPhoneInput = data.phone ? data.phone.replace(/[^0-9]/g, "") : "";
+
+      if (cleanPhoneInput) {
+        const { data: matchedApp } = await supabase
+          .from("beta_applications")
+          .select("id, is_lifetime_discount")
+          .eq("phone", data.phone)
+          .limit(1);
+
+        if (matchedApp && matchedApp.length > 0) {
+          isLifetimeDiscount = true;
+          await supabase
+            .from("beta_applications")
+            .update({ interview_status: "연락함" })
+            .eq("id", matchedApp[0].id);
+        } else {
+          const { data: matchedApp2 } = await supabase
+            .from("beta_applications")
+            .select("id")
+            .eq("phone", cleanPhoneInput)
+            .limit(1);
+          if (matchedApp2 && matchedApp2.length > 0) {
+            isLifetimeDiscount = true;
+            await supabase
+              .from("beta_applications")
+              .update({ interview_status: "연락함" })
+              .eq("id", matchedApp2[0].id);
+          }
+        }
+      }
+
+      // stores 테이블 인서트
       const { data: newStore, error: storeError } = await supabase
         .from("stores")
-        .insert([{ name: data.store_name, slug, category: data.category }])
+        .insert([{ 
+          name: data.store_name, 
+          slug, 
+          category: data.category,
+          subscription_status: subStatus,
+          subscription_start_date: shouldAutoPro ? now.toISOString() : null,
+          subscription_end_date: shouldAutoPro ? endDate.toISOString() : null,
+          is_lifetime_discount: isLifetimeDiscount
+        }])
         .select()
         .single();
 
       if (storeError) throw storeError;
 
+      // profiles 테이블 업서트
       const { error: profileError } = await supabase
         .from("profiles")
         .upsert({
@@ -408,7 +464,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           owner_name: data.owner_name,
           store_id: newStore.id,
           role: "master",
-          subscription_status: "free",
+          subscription_status: subStatus,
+          phone: data.phone || null,
           updated_at: new Date().toISOString(),
         });
 
@@ -423,7 +480,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         owner_name: data.owner_name,
         store_id: newStore.id,
         role: "master",
-        subscription_status: "free",
+        subscription_status: subStatus,
       };
 
       setProfile(updatedProfile);

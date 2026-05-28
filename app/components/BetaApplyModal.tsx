@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { showToast } from "@/app/components/Toast";
+import { signInWithKakao } from "@/utils/supabase/client";
 
 interface BetaApplyModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ export default function BetaApplyModal({ isOpen, onClose }: BetaApplyModalProps)
   const [customItem, setCustomItem] = useState("");
   const [snsLink, setSnsLink] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   if (!isOpen) return null;
 
@@ -69,8 +71,8 @@ export default function BetaApplyModal({ isOpen, onClose }: BetaApplyModalProps)
         throw new Error(data.error || "신청 처리 중 오류가 발생했습니다.");
       }
 
-      showToast("사전 경험단 신청이 완료되었습니다! 확인 후 신속히 연락드리겠습니다.", "success");
-      onClose();
+      showToast("사전 경험단 신청이 완료되었습니다! 🎉", "success");
+      setIsSuccess(true);
       // 입력 폼 초기화
       setOwnerName("");
       setPhone("");
@@ -123,7 +125,7 @@ export default function BetaApplyModal({ isOpen, onClose }: BetaApplyModalProps)
       >
         {/* Close Button */}
         <button
-          onClick={onClose}
+          onClick={() => { onClose(); setIsSuccess(false); }}
           style={{
             position: "absolute",
             top: 20,
@@ -148,146 +150,201 @@ export default function BetaApplyModal({ isOpen, onClose }: BetaApplyModalProps)
           </svg>
         </button>
 
-        {/* Title */}
-        <div style={{ textAlign: "center" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,127,50,0.1)", color: "#FF7F32", padding: "6px 12px", borderRadius: 30, fontSize: 12, fontWeight: 800, marginBottom: 12 }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-            </svg>
-            선착순 15명 한정 혜택
-          </div>
-          <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1a1a1a", letterSpacing: "-0.03em" }}>1기 사전 경험단 신청</h2>
-          <p style={{ fontSize: 13, color: "#666", marginTop: 6, lineHeight: 1.5 }}>
-            지금 신청하시면 추후 정가 인상 시에도<br />
-            <span style={{ color: "#FF7F32", fontWeight: 800 }}>평생 월 4,950원</span> 요금 그대로 동결 적용됩니다.
-          </p>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Store Name */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>매장명 <span style={{ color: "#FF7F32" }}>*</span></label>
-            <input
-              type="text"
-              placeholder="예: 단골 꽃집, 핑크 래빗 케이크"
-              value={storeName}
-              onChange={(e) => setStoreName(e.target.value)}
-              required
-              style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
-              onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
-            />
-          </div>
-
-          {/* Owner Name */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>대표자명 <span style={{ color: "#FF7F32" }}>*</span></label>
-            <input
-              type="text"
-              placeholder="대표자 실명을 적어주세요."
-              value={ownerName}
-              onChange={(e) => setOwnerName(e.target.value)}
-              required
-              style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
-              onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
-            />
-          </div>
-
-          {/* Phone Number */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>연락처 <span style={{ color: "#FF7F32" }}>*</span></label>
-            <input
-              type="tel"
-              placeholder="010-0000-0000"
-              value={phone}
-              onChange={handlePhoneChange}
-              maxLength={13}
-              required
-              style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
-              onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
-            />
-          </div>
-
-          {/* Item Category */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>주요 판매 품목</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-              {["레터링 케이크", "디저트/베이커리", "꽃/플라워", "네일/뷰티", "기타"].map((cat) => (
-                <button
-                  type="button"
-                  key={cat}
-                  onClick={() => setItem(cat)}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 20,
-                    border: "none",
-                    background: item === cat ? "rgba(255,127,50,0.12)" : "rgba(0,0,0,0.04)",
-                    color: item === cat ? "#FF7F32" : "#555",
-                    fontSize: 13,
-                    fontWeight: item === cat ? 800 : 500,
-                    cursor: "pointer",
-                    transition: "all 0.2s",
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
+        {isSuccess ? (
+          /* Success Screen */
+          <div style={{ display: "flex", flexDirection: "column", gap: 20, textAlign: "center", padding: "10px 0" }}>
+            <div style={{ width: 60, height: 60, borderRadius: "50%", background: "rgba(255,127,50,0.1)", color: "#FF7F32", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
             </div>
-            {item === "기타" && (
-              <input
-                type="text"
-                placeholder="직접 입력해 주세요."
-                value={customItem}
-                onChange={(e) => setCustomItem(e.target.value)}
-                style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none" }}
-              />
-            )}
-          </div>
+            
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 900, color: "#1a1a1a", letterSpacing: "-0.03em" }}>사전 신청 완료! 🎉</h2>
+              <p style={{ fontSize: 13, color: "#666", marginTop: 8, lineHeight: 1.5 }}>
+                대표자님, 대기 시간 없이 오더캐치 서비스를 즉시 시작해보세요.
+              </p>
+            </div>
 
-          {/* Instagram / Kakao Link */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>인스타그램 ID 또는 카카오톡 채널명</label>
-            <input
-              type="text"
-              placeholder="예: @store_username 또는 단골꽃집채널"
-              value={snsLink}
-              onChange={(e) => setSnsLink(e.target.value)}
-              style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
-              onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
-              onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
-            />
-          </div>
+            <div style={{ background: "rgba(255, 127, 50, 0.03)", border: "1px solid rgba(255, 127, 50, 0.08)", borderRadius: "18px", padding: "16px 20px", fontSize: 13, color: "#555", lineHeight: 1.6, textAlign: "left" }}>
+              아래 버튼을 눌러 <strong>카카오 1초 회원가입</strong>을 진행하시면, 오늘 신청하신 정보로 <strong>1개월 무료 PRO 요금제</strong>가 즉시 자동 활성화됩니다!
+            </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              marginTop: 12,
-              padding: "16px",
-              borderRadius: 16,
-              background: "#FF7F32",
-              color: "#fff",
-              border: "none",
-              fontSize: 15,
-              fontWeight: 900,
-              cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: "0 10px 24px rgba(255,127,50,0.25)",
-              transition: "transform 0.2s, background 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) e.currentTarget.style.background = "#e66a22";
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) e.currentTarget.style.background = "#FF7F32";
-            }}
-          >
-            {loading ? "신청 처리 중..." : "동결 혜택받고 사전 신청하기 →"}
-          </button>
-        </form>
+            <button
+              onClick={async () => {
+                await signInWithKakao();
+              }}
+              style={{
+                marginTop: 10,
+                padding: "16px",
+                borderRadius: "16px",
+                background: "#FEE500",
+                color: "#3A1D1D",
+                border: "none",
+                fontSize: 15,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: "0 10px 24px rgba(254,229,0,0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "transform 0.2s, background 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#Fada00")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#FEE500")}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#3A1D1D">
+                <path d="M12 3c-5.52 0-10 3.58-10 8c0 2.9 1.9 5.43 4.8 6.7c-.2.7-.8 2.7-.9 3.1c-.1.4.1.5.4.3c.3-.2 4.1-2.7 4.7-3.1c.3.1.6.2 1 .2c5.52 0 10-3.58 10-8s-4.48-8-10-8z"/>
+              </svg>
+              카카오 로그인하고 무료체험 시작 →
+            </button>
+          </div>
+        ) : (
+          /* Application Form */
+          <>
+            {/* Title */}
+            <div style={{ textAlign: "center" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(255,127,50,0.1)", color: "#FF7F32", padding: "6px 12px", borderRadius: 30, fontSize: 12, fontWeight: 800, marginBottom: 12 }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                선착순 15명 한정 혜택
+              </div>
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: "#1a1a1a", letterSpacing: "-0.03em" }}>1기 사전 경험단 신청</h2>
+              <p style={{ fontSize: 13, color: "#666", marginTop: 6, lineHeight: 1.5 }}>
+                지금 신청하시면 추후 정가 인상 시에도<br />
+                <span style={{ color: "#FF7F32", fontWeight: 800 }}>평생 월 4,950원</span> 요금 그대로 동결 적용됩니다.
+              </p>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Store Name */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>매장명 <span style={{ color: "#FF7F32" }}>*</span></label>
+                <input
+                  type="text"
+                  placeholder="예: 단골 꽃집, 핑크 래빗 케이크"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
+                  required
+                  style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
+                />
+              </div>
+
+              {/* Owner Name */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>대표자명 <span style={{ color: "#FF7F32" }}>*</span></label>
+                <input
+                  type="text"
+                  placeholder="대표자 실명을 적어주세요."
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  required
+                  style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>연락처 <span style={{ color: "#FF7F32" }}>*</span></label>
+                <input
+                  type="tel"
+                  placeholder="010-0000-0000"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  maxLength={13}
+                  required
+                  style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
+                />
+              </div>
+
+              {/* Item Category */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>주요 판매 품목</label>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                  {["레터링 케이크", "디저트/베이커리", "꽃/플라워", "네일/뷰티", "기타"].map((cat) => (
+                    <button
+                      type="button"
+                      key={cat}
+                      onClick={() => setItem(cat)}
+                      style={{
+                        padding: "8px 14px",
+                        borderRadius: 20,
+                        border: "none",
+                        background: item === cat ? "rgba(255,127,50,0.12)" : "rgba(0,0,0,0.04)",
+                        color: item === cat ? "#FF7F32" : "#555",
+                        fontSize: 13,
+                        fontWeight: item === cat ? 800 : 500,
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+                {item === "기타" && (
+                  <input
+                    type="text"
+                    placeholder="직접 입력해 주세요."
+                    value={customItem}
+                    onChange={(e) => setCustomItem(e.target.value)}
+                    style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none" }}
+                  />
+                )}
+              </div>
+
+              {/* Instagram / Kakao Link */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 12, fontWeight: 800, color: "#444" }}>인스타그램 ID 또는 카카오톡 채널명</label>
+                <input
+                  type="text"
+                  placeholder="예: @store_username 또는 단골꽃집채널"
+                  value={snsLink}
+                  onChange={(e) => setSnsLink(e.target.value)}
+                  style={{ padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", fontSize: 14, outline: "none", transition: "border-color 0.2s" }}
+                  onFocus={(e) => (e.target.style.borderColor = "#FF7F32")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(0,0,0,0.1)")}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  marginTop: 12,
+                  padding: "16px",
+                  borderRadius: 16,
+                  background: "#FF7F32",
+                  color: "#fff",
+                  border: "none",
+                  fontSize: 15,
+                  fontWeight: 900,
+                  cursor: loading ? "not-allowed" : "pointer",
+                  boxShadow: "0 10px 24px rgba(255,127,50,0.25)",
+                  transition: "transform 0.2s, background 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) e.currentTarget.style.background = "#e66a22";
+                }}
+                onMouseLeave={(e) => {
+                  if (!loading) e.currentTarget.style.background = "#FF7F32";
+                }}
+              >
+                {loading ? "신청 처리 중..." : "동결 혜택받고 사전 신청하기 →"}
+              </button>
+            </form>
+          </>
+        )}
 
         <style>{`
           @keyframes scaleUp {

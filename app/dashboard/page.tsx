@@ -848,23 +848,35 @@ function OnboardingModal({ onClose, onSaved, onLogout }: { onClose: () => void; 
   const [name, setName] = useState("");
   const [owner, setOwner] = useState("");
   const [storeSlug, setStoreSlug] = useState("");
+  const [phone, setPhone] = useState("");
   const [cat, setCat] = useState("dessert");
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const handlePhoneChange = (val: string) => {
+    const raw = val.replace(/[^0-9]/g, "");
+    let formatted = raw;
+    if (raw.length > 3 && raw.length <= 7) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3)}`;
+    } else if (raw.length > 7) {
+      formatted = `${raw.slice(0, 3)}-${raw.slice(3, 7)}-${raw.slice(7, 11)}`;
+    }
+    setPhone(formatted);
+  };
+
   const handleCreate = async () => {
-    if (!name || !owner) return;
+    if (!name || !owner || !phone) return;
     // 간단한 영문/숫자 검증
     if (storeSlug && !/^[a-z0-9-]+$/.test(storeSlug)) {
       setError("매장 ID는 영문 소문자, 숫자, 하이픈(-)만 사용 가능합니다.");
       return;
     }
     setLoading(true);
-    const ok = await createStore({ store_name: name, category: cat, owner_name: owner, store_slug: storeSlug });
+    const ok = await createStore({ store_name: name, category: cat, owner_name: owner, store_slug: storeSlug, phone: phone });
     setLoading(false);
     if (ok) { onSaved(); }
-    else setError("매장 생성에 실패했습니다. 혹시 이미 사용 중인 매장 ID인지 확인해주세요.");
+    else setError("매장 생성에 실패했습니다. 혹은 이미 사용 중인 매장 ID인지 확인해주세요.");
   };
 
   const handleJoin = async () => {
@@ -940,12 +952,17 @@ function OnboardingModal({ onClose, onSaved, onLogout }: { onClose: () => void; 
                   className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
               </div>
               <div>
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest">대표자 연락처 (휴대폰 번호)</label>
+                <input type="tel" value={phone} onChange={e=>handlePhoneChange(e.target.value)} placeholder="010-1234-5678" maxLength={13}
+                  className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
+              </div>
+              <div>
                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest">매장 ID (선택)</label>
                 <input type="text" value={storeSlug} onChange={e=>setStoreSlug(e.target.value.toLowerCase())} placeholder="예: amanda-cake (고객 공유용 주소로 사용됨)"
                   className="w-full mt-2 p-4 bg-slate-50 rounded-2xl font-bold outline-none focus:ring-2 ring-indigo-100" />
               </div>
               {error && <p className="text-sm font-bold text-red-500">{error}</p>}
-              <button disabled={loading || !name || !owner} onClick={handleCreate}
+              <button disabled={loading || !name || !owner || !phone} onClick={handleCreate}
                 className="w-full py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
                 {loading ? "매장 오픈 준비 중..." : "오더캐치 시작하기"}
               </button>
