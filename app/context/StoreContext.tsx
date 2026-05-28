@@ -332,8 +332,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const createStore = async (data: { store_name: string; category: string; owner_name: string; store_slug?: string }) => {
     try {
+      const isMock = typeof document !== "undefined" && document.cookie.includes("ordercatch-mock-user=true");
+
+      if (isMock) {
+        const mockStoreId = "00000000-0000-0000-0000-" + Math.random().toString(36).slice(2, 14).padEnd(12, '0');
+        const slug = data.store_slug && data.store_slug.trim() !== ""
+          ? data.store_slug.trim().toLowerCase()
+          : data.store_name
+              .toLowerCase()
+              .replace(/[^a-z0-9가-힣]/g, "-")
+              .replace(/-+/g, "-")
+              .slice(0, 30) +
+            "-" +
+            Math.random().toString(36).slice(2, 6);
+
+        const newStore: StoreInfo = {
+          id: mockStoreId,
+          name: data.store_name,
+          slug,
+          category: data.category,
+          invite_code: "MOCK" + Math.random().toString(36).slice(2, 6).toUpperCase(),
+        };
+
+        const updatedProfile: Profile = {
+          id: "00000000-0000-0000-0000-000000000000",
+          email: "mock@example.com",
+          store_name: data.store_name,
+          store_slug: slug,
+          category: data.category,
+          owner_name: data.owner_name,
+          store_id: mockStoreId,
+          role: "master",
+          subscription_status: "free",
+        };
+
+        setProfile(updatedProfile);
+        setStoreInfo(newStore);
+        await db.profiles.put({ ...updatedProfile, updatedAt: new Date().toISOString() });
+        await db.stores.put({ ...newStore, updatedAt: new Date().toISOString() });
+
+        return true;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return false;
+      if (!session?.user) {
+        throw new Error("로그인 세션이 만료되었거나 찾을 수 없습니다. 다시 로그인해 주세요.");
+      }
 
       const slug = data.store_slug && data.store_slug.trim() !== ""
         ? data.store_slug.trim().toLowerCase()

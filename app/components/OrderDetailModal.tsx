@@ -153,7 +153,8 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     showToast("사진 업로드 중... 다른 정보를 계속 수정할 수 있습니다.", "info");
   }, [order.storeId]);
 
-  // 클립보드 이미지 붙여넣기 감지 (onPaste 이벤트 통합)
+  // 클립보드 이미지 붙여넣기 감지 (onPaste 이벤트 통합) - 사진 업로드 비활성화로 인해 주석 처리
+  /*
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -169,6 +170,7 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
   }, [handleImageFile]);
+  */
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -323,11 +325,11 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
           {/* Body Scroll Area */}
           <div style={{ padding: "28px 32px 32px", overflowY: "auto", display: "flex", flexDirection: "column", gap: 28 }}>
             
-            {/* 사진 관리 영역 */}
-            <div>
-              <SectionTitle>사진 관리</SectionTitle>
-              <div style={{ marginTop: 14 }}>
-                {imagePreview ? (
+            {/* 사진 관리 영역 (기존 사진이 있을 때만 렌더링하고, 추가/변경/삭제 불가) */}
+            {imagePreview && (
+              <div>
+                <SectionTitle>사진 관리</SectionTitle>
+                <div style={{ marginTop: 14 }}>
                   <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)", boxShadow: "0 10px 30px rgba(0,0,0,0.1)" }}>
                     <img
                       src={imagePreview}
@@ -335,62 +337,10 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
                       onClick={() => setLightboxOpen(true)}
                       style={{ width: "100%", maxHeight: 280, objectFit: "cover", display: "block", cursor: "zoom-in" }}
                     />
-                    <div style={{ position: "absolute", top: 16, right: 16, display: "flex", gap: 8 }}>
-                      <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        style={{ background: "rgba(255,255,255,0.95)", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 12px rgba(0,0,0,0.15)", color: "#1E293B" }}
-                      >사진 변경</button>
-                      <button 
-                        onClick={() => { uploadedImageUrlRef.current = null; uploadPromiseRef.current = null; setImagePreview(null); }}
-                        style={{ background: "#EF4444", border: "none", borderRadius: 10, padding: "8px 14px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer", boxShadow: "0 4px 12px rgba(239, 68, 68, 0.3)" }}
-                      >삭제</button>
-                    </div>
-                    <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "linear-gradient(transparent, rgba(0,0,0,0.6))", padding: "24px 16px 12px", color: "#fff", fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <line x1="12" y1="16" x2="12" y2="12"></line>
-                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                      </svg>
-                      <span>Ctrl+V를 눌러 이미지를 즉시 붙여넣을 수 있습니다.</span>
-                    </div>
                   </div>
-                ) : (
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    style={{
-                      height: 140,
-                      borderRadius: 20,
-                      border: "2.5px dashed #CBD5E1",
-                      background: "#F8FAFC",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      transition: "all 0.2s"
-                    }}
-                  >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#64748B" }}>사진 추가 (클릭하거나 Ctrl+V)</div>
-                  </div>
-                )}
-                <input 
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageFile(file);
-                  }}
-                />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* 주요 정보 편집 */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
