@@ -101,8 +101,10 @@ export default function OrderDetailModal({ order, onClose, onStatusChange, onDel
   // 날짜/시간 분리 처리
   const initialDate = new Date(order.pickupDate);
   const isValidInitialDate = !isNaN(initialDate.getTime());
-  const [editDate, setEditDate] = useState(isValidInitialDate ? initialDate.toISOString().split("T")[0] : "");
-  const [editTime, setEditTime] = useState(isValidInitialDate ? `${String(initialDate.getHours()).padStart(2, "0")}:${String(initialDate.getMinutes()).padStart(2, "0")}` : "");
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const editDateInitial = isValidInitialDate ? `${initialDate.getFullYear()}-${pad(initialDate.getMonth() + 1)}-${pad(initialDate.getDate())}` : "";
+  const [editDate, setEditDate] = useState(editDateInitial);
+  const [editTime, setEditTime] = useState(isValidInitialDate ? `${pad(initialDate.getHours())}:${pad(initialDate.getMinutes())}` : "");
 
   // --- 이미지 상태 관리 ---
   const [imagePreview, setImagePreview] = useState<string | null>(order.options?.imageUrl || null);

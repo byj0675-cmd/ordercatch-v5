@@ -139,6 +139,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
   const [isParsing, setIsParsing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editedData, setEditedData] = useState<EditedData | null>(null);
+  const [bgParsedData, setBgParsedData] = useState<EditedData | null>(null);
+  const [isBgParsing, setIsBgParsing] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [existingOrders, setExistingOrders] = useState<Order[]>([]);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
@@ -298,6 +300,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     if (!targetText.trim() || targetText === bgTextRef.current) return;
     bgTextRef.current = targetText;
     bgParsedDataRef.current = null;
+    setBgParsedData(null);
+    setIsBgParsing(true);
 
     const promise = (async () => {
       try {
@@ -328,7 +332,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
 
         const data = JSON.parse(accumulated);
         const pickupDateStr = data.pickupDate
-          ? new Date(data.pickupDate).toISOString().slice(0, 16)
+          ? data.pickupDate.slice(0, 16)
           : "";
 
         const result: EditedData = {
@@ -342,9 +346,12 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
           customFields: mergeEnabledCustomFields(data.customFields || [], customFieldsConfig),
         };
         bgParsedDataRef.current = result;
+        setBgParsedData(result);
+        setIsBgParsing(false);
         return result;
       } catch (err) {
         console.error("Background parse failed", err);
+        setIsBgParsing(false);
         return null;
       }
     })();
@@ -435,7 +442,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
         setEditedData({
           customerName: fields.customerName === "customerName" ? "" : fields.customerName,
           productName: fields.productName,
-          pickupDate: fields.pickupDate ? new Date(fields.pickupDate).toISOString().slice(0, 16) : "",
+          pickupDate: fields.pickupDate ? fields.pickupDate.slice(0, 16) : "",
           phone: fields.phone,
           amount: fields.amount,
           memo: fields.memo,
@@ -447,7 +454,7 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
       try {
         const finalJson = JSON.parse(accumulated);
         const finalPickupStr = finalJson.pickupDate
-          ? new Date(finalJson.pickupDate).toISOString().slice(0, 16)
+          ? finalJson.pickupDate.slice(0, 16)
           : "";
         setEditedData({
           customerName: finalJson.customerName === "customerName" ? "" : (finalJson.customerName || ""),
@@ -629,6 +636,8 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
     setEditedData(null);
     bgTextRef.current = "";
     bgParsedDataRef.current = null;
+    setBgParsedData(null);
+    setIsBgParsing(false);
     bgParsingPromiseRef.current = null;
     setImagePreview(null);
     uploadedImageUrlRef.current = null;
@@ -729,8 +738,52 @@ export default function PasteBoard({ onParsed, storeId }: PasteBoardProps) {
                 placeholder="받은 주문 메시지를 그대로 복사해서 붙여넣으세요..."
                 rows={4}
                 disabled={isParsing}
-                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", background: "#fafafa", color: "#1e293b" }}
+                style={{ width: "100%", padding: "14px", borderRadius: 12, border: "1.5px solid", borderColor: bgParsedData ? "#4f46e5" : "#e2e8f0", fontSize: 14, outline: "none", resize: "vertical", lineHeight: 1.6, boxSizing: "border-box", fontFamily: "inherit", background: bgParsedData ? "#f8fafc" : "#fafafa", color: "#1e293b", transition: "all 0.3s ease" }}
               />
+              
+              {/* 다이내믹 칩 (네이버 캘린더 스타일) */}
+              {(isBgParsing || bgParsedData) && (
+                <div className="animate-fadeIn no-scrollbar" style={{ display: "flex", gap: 8, marginTop: 12, overflowX: "auto", paddingBottom: 4, whiteSpace: "nowrap" }}>
+                  {isBgParsing && (
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {[1, 2, 3].map(i => (
+                        <div key={i} style={{ padding: "6px 12px", background: "#f1f5f9", borderRadius: 20, display: "flex", alignItems: "center", gap: 6, animation: "pulse 1.5s infinite ease-in-out" }}>
+                          <div style={{ width: 12, height: 12, borderRadius: "50%", background: "#cbd5e1" }} />
+                          <div style={{ width: 40, height: 10, borderRadius: 4, background: "#cbd5e1" }} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {!isBgParsing && bgParsedData && (
+                    <>
+                      {bgParsedData.pickupDate && (
+                        <div style={{ padding: "6px 14px", background: "rgba(79,70,229,0.06)", color: "#4338ca", borderRadius: 24, fontSize: 13, fontWeight: 700, border: "1px solid rgba(79,70,229,0.15)", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> 
+                          {new Date(bgParsedData.pickupDate).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                      )}
+                      {bgParsedData.customerName && (
+                        <div style={{ padding: "6px 14px", background: "rgba(15,118,110,0.06)", color: "#0f766e", borderRadius: 24, fontSize: 13, fontWeight: 700, border: "1px solid rgba(15,118,110,0.15)", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg> 
+                          {bgParsedData.customerName}
+                        </div>
+                      )}
+                      {bgParsedData.productName && (
+                        <div style={{ padding: "6px 14px", background: "rgba(225,29,72,0.06)", color: "#be123c", borderRadius: 24, fontSize: 13, fontWeight: 700, border: "1px solid rgba(225,29,72,0.15)", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 
+                          {bgParsedData.productName}
+                        </div>
+                      )}
+                      {bgParsedData.phone && (
+                        <div style={{ padding: "6px 14px", background: "rgba(71,85,105,0.06)", color: "#334155", borderRadius: 24, fontSize: 13, fontWeight: 700, border: "1px solid rgba(71,85,105,0.15)", display: "flex", alignItems: "center", gap: 6, backdropFilter: "blur(4px)" }}>
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> 
+                          {bgParsedData.phone}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 이미지 첨부 영역 (첫 번째 입력 단계) */}

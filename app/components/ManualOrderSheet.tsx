@@ -193,9 +193,8 @@ export default function ManualOrderSheet({
       setMemo(data.options?.memo || "");
 
       if (data.pickupDate) {
-        const d = new Date(data.pickupDate);
-        setPickupDate(d.toISOString().split("T")[0]);
-        setPickupTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
+        setPickupDate(data.pickupDate.slice(0, 10));
+        setPickupTime(data.pickupDate.slice(11, 16));
       }
 
       // AI가 추출한 커스텀 필드 데이터를 로컬 필드에 동기화

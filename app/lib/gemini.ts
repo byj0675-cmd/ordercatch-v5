@@ -84,8 +84,29 @@ ${disabledGuide}${storeFieldsGuide}${storeProductsGuide}
   ]
 }
 
-[필드 추출 규칙]
-- customFields: 기본 필드(이름/연락처/상품명/일시/주소/금액/메모) 외의 모든 주문별 맞춤 정보를 빠짐없이 key-value 배열로 추출하세요. 예: 사이즈, 설기종류, 막대초 갯수, 문구, 레터링, 맛, 색상, 디자인 옵션 등 주문서에 기재된 추가 옵션 사양은 전부 key와 value로 분리하여 customFields에 담아주세요.`;
+[추출 3대 원칙]
+1. 있는 그대로: 원본 텍스트에 명시된 상품명과 수량(되, 말, 개, 호 등 단위 포함)을 임의로 축약하지 말고 그대로 추출할 것.
+2. 맞춤 항목(옵션) 분리: "설탕 덜 달게", "포장 예쁘게", "투명 박스" 등 기본 정보 외의 요구사항은 모두 customFields 배열이나 options.memo 필드로 분리할 것.
+3. 환각 금지: 입력 텍스트에 없는 정보는 절대 지어내지 말고, 빈 문자열("") 또는 0으로 처리할 것.
+
+[Few-Shot 예시]
+입력: "이번 주 금요일 오후 2시에 백설기 2말 퀵으로 보내주세요. 덜 달게 해주세요. 홍길동 010-1234-5678"
+출력:
+{
+  "customerName": "홍길동",
+  "phone": "010-1234-5678",
+  "productName": "백설기 2말",
+  "pickupDate": "2026-06-05T14:00:00",
+  "amount": 0,
+  "intent": "new",
+  "options": {
+    "delivery": "퀵",
+    "memo": "덜 달게 해주세요."
+  },
+  "customFields": [
+    { "key": "당도", "value": "덜 달게" }
+  ]
+}`;
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -219,8 +240,29 @@ ${disabledGuide}${storeFieldsGuide}${storeProductsGuide}
   ]
 }
 
-[필드 추출 규칙]
-- customFields: 기본 필드(이름/연락처/상품명/일시/주소/금액/메모) 외의 모든 주문별 맞춤 정보를 빠짐없이 key-value 배열로 추출하세요.`;
+[추출 3대 원칙]
+1. 있는 그대로: 원본 텍스트에 명시된 상품명과 수량(되, 말, 개, 호 등 단위 포함)을 임의로 축약하지 말고 그대로 추출할 것.
+2. 맞춤 항목(옵션) 분리: "설탕 덜 달게", "포장 예쁘게", "투명 박스" 등 기본 정보 외의 요구사항은 모두 customFields 배열이나 options.memo 필드로 분리할 것.
+3. 환각 금지: 입력 텍스트에 없는 정보는 절대 지어내지 말고, 빈 문자열("") 또는 0으로 처리할 것.
+
+[Few-Shot 예시]
+입력: "이번 주 금요일 오후 2시에 백설기 2말 퀵으로 보내주세요. 덜 달게 해주세요. 홍길동 010-1234-5678"
+출력:
+{
+  "customerName": "홍길동",
+  "phone": "010-1234-5678",
+  "productName": "백설기 2말",
+  "pickupDate": "2026-06-05T14:00:00",
+  "amount": 0,
+  "intent": "new",
+  "options": {
+    "delivery": "퀵",
+    "memo": "덜 달게 해주세요."
+  },
+  "customFields": [
+    { "key": "당도", "value": "덜 달게" }
+  ]
+}`;
 
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
